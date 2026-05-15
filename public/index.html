@@ -38,7 +38,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.13</span></h1>
+  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.14</span></h1>
   <p class="lead">Bakes custom fonts into a PNG so email clients can’t strip them. Fill the fields → download the PNG → host it → copy the HTML.</p>
 
   <div class="grid">
@@ -884,22 +884,32 @@ function buildV2Html(leftImgUrl, logoImgUrl) {
     + `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; ${tblReset}">`
     + `<tr><td height="8" width="100%" style="width:100%; height:8px; padding:0; margin:0; border:0; font-size:1px; line-height:8px; mso-line-height-rule:exactly;">&nbsp;</td></tr>`
     + `</table>`
-    + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0; font-size:0; line-height:0;">`
-    + `<tr><td style="padding:0; ${tdReset} white-space:nowrap;">`
-    + `<a href="${v.linkedin}" target="_blank" style="${iconA(v.iconBg, 13, 700, 4)}">in</a>`
-    + `<a href="${v.youtube}" target="_blank" style="${iconA(v.iconBg, 12, 400, 4)}">&#9654;</a>`
-    + `<a href="${v.website}" target="_blank" style="${iconA(v.iconBg, 13, 400, 0)}">&#8853;</a>`
-    + `</td></tr>`
+    // Per-anchor <td> + bgcolor spacer cells. Outlook for Mac was leaking
+    // each anchor's background-color into its margin-right, painting a
+    // coloured rectangle between adjacent rounded icons/pills. Putting
+    // each anchor in its own table cell and using explicit
+    // bgcolor="${v.bg}" spacer cells guarantees the gap renders in the
+    // page background colour.
+    + `<table cellpadding="0" cellspacing="0" border="0" align="right" bgcolor="${v.bg}" style="${tblReset} margin-left:auto; margin-right:0; font-size:0; line-height:0; background-color:${v.bg};">`
+    + `<tr>`
+    + `<td bgcolor="${v.bg}" style="${tdReset} background-color:${v.bg}; vertical-align:top;"><a href="${v.linkedin}" target="_blank" style="${iconA(v.iconBg, 13, 700, 0)}">in</a></td>`
+    + `<td width="4" bgcolor="${v.bg}" style="${tdReset} width:4px; background-color:${v.bg}; font-size:1px; line-height:1px;">&nbsp;</td>`
+    + `<td bgcolor="${v.bg}" style="${tdReset} background-color:${v.bg}; vertical-align:top;"><a href="${v.youtube}" target="_blank" style="${iconA(v.iconBg, 12, 400, 0)}">&#9654;</a></td>`
+    + `<td width="4" bgcolor="${v.bg}" style="${tdReset} width:4px; background-color:${v.bg}; font-size:1px; line-height:1px;">&nbsp;</td>`
+    + `<td bgcolor="${v.bg}" style="${tdReset} background-color:${v.bg}; vertical-align:top;"><a href="${v.website}" target="_blank" style="${iconA(v.iconBg, 13, 400, 0)}">&#8853;</a></td>`
+    + `</tr>`
     + `</table>`
     + `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; ${tblReset}">`
     + `<tr><td height="10" width="100%" style="width:100%; height:10px; padding:0; margin:0; border:0; font-size:1px; line-height:10px; mso-line-height-rule:exactly;">&nbsp;</td></tr>`
     + `</table>`
-    + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0; font-size:0; line-height:0;">`
-    + `<tr><td style="padding:0; ${tdReset} white-space:nowrap;">`
-    + `<a href="${v.search}" target="_blank" style="${pillA('#D8923E', 4)}">SEARCH</a>`
-    + `<a href="${v.influence}" target="_blank" style="${pillA('#FFA57E', 4)}">INFLUENCE</a>`
-    + `<a href="${v.ventures}" target="_blank" style="${pillA('#EECAB0', 0)}">VENTURES</a>`
-    + `</td></tr>`
+    + `<table cellpadding="0" cellspacing="0" border="0" align="right" bgcolor="${v.bg}" style="${tblReset} margin-left:auto; margin-right:0; font-size:0; line-height:0; background-color:${v.bg};">`
+    + `<tr>`
+    + `<td bgcolor="${v.bg}" style="${tdReset} background-color:${v.bg}; vertical-align:top;"><a href="${v.search}" target="_blank" style="${pillA('#D8923E', 0)}">SEARCH</a></td>`
+    + `<td width="4" bgcolor="${v.bg}" style="${tdReset} width:4px; background-color:${v.bg}; font-size:1px; line-height:1px;">&nbsp;</td>`
+    + `<td bgcolor="${v.bg}" style="${tdReset} background-color:${v.bg}; vertical-align:top;"><a href="${v.influence}" target="_blank" style="${pillA('#FFA57E', 0)}">INFLUENCE</a></td>`
+    + `<td width="4" bgcolor="${v.bg}" style="${tdReset} width:4px; background-color:${v.bg}; font-size:1px; line-height:1px;">&nbsp;</td>`
+    + `<td bgcolor="${v.bg}" style="${tdReset} background-color:${v.bg}; vertical-align:top;"><a href="${v.ventures}" target="_blank" style="${pillA('#EECAB0', 0)}">VENTURES</a></td>`
+    + `</tr>`
     + `</table>`
     + `</td>`
     + `</tr>`
