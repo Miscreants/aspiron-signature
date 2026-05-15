@@ -38,7 +38,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.8</span></h1>
+  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.9</span></h1>
   <p class="lead">Bakes custom fonts into a PNG so email clients can’t strip them. Fill the fields → download the PNG → host it → copy the HTML.</p>
 
   <div class="grid">
@@ -621,14 +621,22 @@ function buildTiledHtml(grid) {
   // auto-sizing inner tables to image intrinsic dimensions and breaking the
   // 338/262 column split.
   const tblBase = 'border-collapse:collapse; border-spacing:0; mso-table-lspace:0pt; mso-table-rspace:0pt; table-layout:fixed;';
-  const aBase = 'display:block; line-height:0; font-size:0; text-decoration:none; border:0; outline:0;';
+  // Outlook for Mac / Apple Mail (WebKit) leaves a 1–2px baseline strut on
+  // inline-level elements even with line-height:0, so every <a> needs
+  // vertical-align:top + margin:0 + padding:0 to defeat hairline seams between
+  // adjacent linked tiles.
+  const aBase = 'display:block; line-height:0; font-size:0; text-decoration:none; border:0; outline:0; margin:0; padding:0; vertical-align:top;';
 
   // IMPORTANT: emit zero whitespace between table tags. Outlook for Mac
   // (WebKit) renders whitespace text nodes between </td>/<td> and </tr>/<tr>
   // as actual content, which inflates row heights and shifts seams even with
   // font-size:0 on the cells. The whole signature must be a single line.
   const img = (url, w, h) =>
-    `<img src="${escapeAttr(url)}" width="${w}" height="${h}" border="0" hspace="0" vspace="0" alt="" style="display:block; border:0; outline:0; width:${w}px; height:${h}px; max-width:${w}px; -ms-interpolation-mode:bicubic;" />`;
+    // vertical-align:top + margin:0 on every <img> is the WebKit/Outlook-Mac
+    // fix for hairline gaps between vertically-adjacent tiles: without it
+    // each img keeps a baseline strut that opens 1–2px seams at every row
+    // boundary.
+    `<img src="${escapeAttr(url)}" width="${w}" height="${h}" border="0" hspace="0" vspace="0" alt="" style="display:block; border:0; outline:0; margin:0; padding:0; vertical-align:top; width:${w}px; height:${h}px; max-width:${w}px; -ms-interpolation-mode:bicubic;" />`;
   const td = (w, h, inner) =>
     `<td width="${w}" height="${h}" style="${tdBase} width:${w}px; height:${h}px;" valign="top">${inner}</td>`;
   const tbl = (w, inner) =>
