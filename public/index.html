@@ -38,7 +38,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.14</span></h1>
+  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.15</span></h1>
   <p class="lead">Bakes custom fonts into a PNG so email clients can’t strip them. Fill the fields → download the PNG → host it → copy the HTML.</p>
 
   <div class="grid">
@@ -854,11 +854,14 @@ function buildV2Html(leftImgUrl, logoImgUrl) {
     iconBg: DEPT_COLORS[currentDept],
     bg: V2_BG_COLOR,
   };
-  const tblReset = 'border-collapse:collapse; border-spacing:0; mso-table-lspace:0pt; mso-table-rspace:0pt; padding:0; margin:0;';
-  const tdReset  = 'padding:0; margin:0; border:0; font-size:0; line-height:0; mso-line-height-rule:exactly;';
-  const aReset   = 'margin:0; border:0; outline:0; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; mso-line-height-rule:exactly;';
+  // Word/Outlook floors font-size:0 to 1pt and substitutes `0cm` (locale-default
+  // unit) for bare zeros in padding/margin. Authoring with explicit 1px and
+  // 0px keeps round-trips predictable across the Word HTML engine.
+  const tblReset = 'border-collapse:collapse; border-spacing:0px; mso-table-lspace:0pt; mso-table-rspace:0pt; padding:0px; margin:0px;';
+  const tdReset  = 'padding:0px; margin:0px; border:0; font-size:1px; line-height:1px; mso-line-height-rule:exactly;';
+  const aReset   = 'margin:0px; border:0; outline:0; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; mso-line-height-rule:exactly;';
   const iconA = (bg, fs, fw, mr) =>
-    `display:inline-block; width:28px; height:28px; box-sizing:border-box; background-color:${bg}; border-radius:6px; text-align:center; vertical-align:top; line-height:28px; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0; ${aReset} margin-right:${mr}px;`;
+    `display:inline-block; width:28px; height:28px; box-sizing:border-box; background-color:${bg}; border-radius:6px; text-align:center; vertical-align:top; line-height:28px; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0px; ${aReset} margin-right:${mr}px;`;
   const pillA = (bg, mr) =>
     `display:inline-block; box-sizing:border-box; background-color:${bg}; color:#000000; font-family:Arial, Helvetica, sans-serif; font-size:9px; font-weight:600; font-style:normal; text-decoration:none; text-transform:none; padding:5px 12px; border-radius:9px; line-height:1; letter-spacing:0.6px; vertical-align:top; white-space:nowrap; ${aReset} margin-right:${mr}px;`;
 
@@ -866,23 +869,23 @@ function buildV2Html(leftImgUrl, logoImgUrl) {
   // the left/right TD boundary, the gap fills with V2_BG_COLOR and becomes
   // invisible against the flat-coloured left tile.
   return `<!-- Aspiron Email Signature V2 (flat bg, hybrid tile+HTML) -->`
-    + `<table cellpadding="0" cellspacing="0" border="0" width="${SIG_W}" bgcolor="${v.bg}" style="${tblReset} width:${SIG_W}px; background-color:${v.bg}; font-family:Arial, Helvetica, sans-serif; font-size:0; line-height:0; color:#000000;">`
+    + `<table cellpadding="0" cellspacing="0" border="0" width="${SIG_W}" bgcolor="${v.bg}" style="${tblReset} width:${SIG_W}px; background-color:${v.bg}; font-family:Arial, Helvetica, sans-serif; font-size:1px; line-height:1px; color:#000000;">`
     + `<tr>`
     + `<td width="${V2_LEFT_W}" height="${SIG_H}" bgcolor="${v.bg}" valign="top" style="${tdReset} width:${V2_LEFT_W}px; height:${SIG_H}px; background-color:${v.bg}; vertical-align:top;">`
-    + `<img src="${v.img}" width="${V2_LEFT_W}" height="${SIG_H}" border="0" hspace="0" vspace="0" alt="" style="display:block; border:0; outline:0; margin:0; padding:0; vertical-align:top; width:${V2_LEFT_W}px; height:${SIG_H}px; max-width:${V2_LEFT_W}px; -ms-interpolation-mode:bicubic; background-color:${v.bg};" />`
+    + `<img src="${v.img}" width="${V2_LEFT_W}" height="${SIG_H}" border="0" hspace="0" vspace="0" alt="" style="display:block; border:0; outline:0; margin:0px; padding:0px; vertical-align:top; width:${V2_LEFT_W}px; height:${SIG_H}px; max-width:${V2_LEFT_W}px; -ms-interpolation-mode:bicubic; background-color:${v.bg};" />`
     + `</td>`
-    + `<td width="${V2_RIGHT_W}" height="${SIG_H}" bgcolor="${v.bg}" valign="top" align="right" style="width:${V2_RIGHT_W}px; height:${SIG_H}px; padding:14px 16px 0 0; margin:0; border:0; font-size:0; line-height:0; mso-line-height-rule:exactly; text-align:right; vertical-align:top; background-color:${v.bg}; color:#000000;">`
+    + `<td width="${V2_RIGHT_W}" height="${SIG_H}" bgcolor="${v.bg}" valign="top" align="right" style="width:${V2_RIGHT_W}px; height:${SIG_H}px; padding:14px 16px 0px 0px; margin:0px; border:0; font-size:1px; line-height:1px; mso-line-height-rule:exactly; text-align:right; vertical-align:top; background-color:${v.bg}; color:#000000;">`
     // Department logo (links to Website URL), right-aligned. Replaces the
     // previous 44px top spacer that V2.0 used.
-    + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0; font-size:0; line-height:0;">`
+    + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px; font-size:1px; line-height:1px;">`
     + `<tr><td style="${tdReset}">`
-    + `<a href="${v.website}" target="_blank" style="display:inline-block; line-height:0; font-size:0; text-decoration:none; border:0; outline:0; margin:0; padding:0; vertical-align:top;">`
-    + `<img src="${v.logo}" width="${V2_LOGO_SRC_W}" height="${V2_LOGO_SRC_H}" border="0" hspace="0" vspace="0" alt="Aspiron" style="display:block; border:0; outline:0; margin:0; padding:0; vertical-align:top; width:${V2_LOGO_SRC_W}px; height:${V2_LOGO_SRC_H}px; max-width:${V2_LOGO_SRC_W}px; -ms-interpolation-mode:bicubic; background-color:${v.bg};" />`
+    + `<a href="${v.website}" target="_blank" style="display:inline-block; line-height:1px; font-size:1px; text-decoration:none; border:0; outline:0; margin:0px; padding:0px; vertical-align:top;">`
+    + `<img src="${v.logo}" width="${V2_LOGO_SRC_W}" height="${V2_LOGO_SRC_H}" border="0" hspace="0" vspace="0" alt="Aspiron" style="display:block; border:0; outline:0; margin:0px; padding:0px; vertical-align:top; width:${V2_LOGO_SRC_W}px; height:${V2_LOGO_SRC_H}px; max-width:${V2_LOGO_SRC_W}px; -ms-interpolation-mode:bicubic; background-color:${v.bg};" />`
     + `</a>`
     + `</td></tr>`
     + `</table>`
     + `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; ${tblReset}">`
-    + `<tr><td height="8" width="100%" style="width:100%; height:8px; padding:0; margin:0; border:0; font-size:1px; line-height:8px; mso-line-height-rule:exactly;">&nbsp;</td></tr>`
+    + `<tr><td height="8" width="100%" style="width:100%; height:8px; padding:0px; margin:0px; border:0; font-size:1px; line-height:8px; mso-line-height-rule:exactly;">&#8203;</td></tr>`
     + `</table>`
     // Per-anchor <td> + bgcolor spacer cells. Outlook for Mac was leaking
     // each anchor's background-color into its margin-right, painting a
@@ -890,24 +893,24 @@ function buildV2Html(leftImgUrl, logoImgUrl) {
     // each anchor in its own table cell and using explicit
     // bgcolor="${v.bg}" spacer cells guarantees the gap renders in the
     // page background colour.
-    + `<table cellpadding="0" cellspacing="0" border="0" align="right" bgcolor="${v.bg}" style="${tblReset} margin-left:auto; margin-right:0; font-size:0; line-height:0; background-color:${v.bg};">`
+    + `<table cellpadding="0" cellspacing="0" border="0" align="right" bgcolor="${v.bg}" style="${tblReset} margin-left:auto; margin-right:0px; font-size:1px; line-height:1px; background-color:${v.bg};">`
     + `<tr>`
     + `<td bgcolor="${v.bg}" style="${tdReset} background-color:${v.bg}; vertical-align:top;"><a href="${v.linkedin}" target="_blank" style="${iconA(v.iconBg, 13, 700, 0)}">in</a></td>`
-    + `<td width="4" bgcolor="${v.bg}" style="${tdReset} width:4px; background-color:${v.bg}; font-size:1px; line-height:1px;">&nbsp;</td>`
+    + `<td width="4" bgcolor="${v.bg}" style="${tdReset} width:4px; background-color:${v.bg}; font-size:1px; line-height:1px;">&#8203;</td>`
     + `<td bgcolor="${v.bg}" style="${tdReset} background-color:${v.bg}; vertical-align:top;"><a href="${v.youtube}" target="_blank" style="${iconA(v.iconBg, 12, 400, 0)}">&#9654;</a></td>`
-    + `<td width="4" bgcolor="${v.bg}" style="${tdReset} width:4px; background-color:${v.bg}; font-size:1px; line-height:1px;">&nbsp;</td>`
+    + `<td width="4" bgcolor="${v.bg}" style="${tdReset} width:4px; background-color:${v.bg}; font-size:1px; line-height:1px;">&#8203;</td>`
     + `<td bgcolor="${v.bg}" style="${tdReset} background-color:${v.bg}; vertical-align:top;"><a href="${v.website}" target="_blank" style="${iconA(v.iconBg, 13, 400, 0)}">&#8853;</a></td>`
     + `</tr>`
     + `</table>`
     + `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; ${tblReset}">`
-    + `<tr><td height="10" width="100%" style="width:100%; height:10px; padding:0; margin:0; border:0; font-size:1px; line-height:10px; mso-line-height-rule:exactly;">&nbsp;</td></tr>`
+    + `<tr><td height="10" width="100%" style="width:100%; height:10px; padding:0px; margin:0px; border:0; font-size:1px; line-height:10px; mso-line-height-rule:exactly;">&#8203;</td></tr>`
     + `</table>`
-    + `<table cellpadding="0" cellspacing="0" border="0" align="right" bgcolor="${v.bg}" style="${tblReset} margin-left:auto; margin-right:0; font-size:0; line-height:0; background-color:${v.bg};">`
+    + `<table cellpadding="0" cellspacing="0" border="0" align="right" bgcolor="${v.bg}" style="${tblReset} margin-left:auto; margin-right:0px; font-size:1px; line-height:1px; background-color:${v.bg};">`
     + `<tr>`
     + `<td bgcolor="${v.bg}" style="${tdReset} background-color:${v.bg}; vertical-align:top;"><a href="${v.search}" target="_blank" style="${pillA('#D8923E', 0)}">SEARCH</a></td>`
-    + `<td width="4" bgcolor="${v.bg}" style="${tdReset} width:4px; background-color:${v.bg}; font-size:1px; line-height:1px;">&nbsp;</td>`
+    + `<td width="4" bgcolor="${v.bg}" style="${tdReset} width:4px; background-color:${v.bg}; font-size:1px; line-height:1px;">&#8203;</td>`
     + `<td bgcolor="${v.bg}" style="${tdReset} background-color:${v.bg}; vertical-align:top;"><a href="${v.influence}" target="_blank" style="${pillA('#FFA57E', 0)}">INFLUENCE</a></td>`
-    + `<td width="4" bgcolor="${v.bg}" style="${tdReset} width:4px; background-color:${v.bg}; font-size:1px; line-height:1px;">&nbsp;</td>`
+    + `<td width="4" bgcolor="${v.bg}" style="${tdReset} width:4px; background-color:${v.bg}; font-size:1px; line-height:1px;">&#8203;</td>`
     + `<td bgcolor="${v.bg}" style="${tdReset} background-color:${v.bg}; vertical-align:top;"><a href="${v.ventures}" target="_blank" style="${pillA('#EECAB0', 0)}">VENTURES</a></td>`
     + `</tr>`
     + `</table>`
