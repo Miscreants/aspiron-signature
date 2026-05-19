@@ -38,7 +38,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.17</span></h1>
+  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.18</span></h1>
   <p class="lead">Bakes custom fonts into a PNG so email clients can’t strip them. Fill the fields → download the PNG → host it → copy the HTML.</p>
 
   <div class="grid">
@@ -888,12 +888,20 @@ function buildV2Html(leftImgUrl, logoImgUrl, rightBgUrl) {
     + `<td width="${V2_LEFT_W}" height="${SIG_H}" bgcolor="${v.bg}" valign="top" style="${tdReset} width:${V2_LEFT_W}px; height:${SIG_H}px; background-color:${v.bg}; vertical-align:top;">`
     + `<img src="${v.img}" width="${V2_LEFT_W}" height="${SIG_H}" border="0" hspace="0" vspace="0" alt="" style="display:block; border:0px; outline:0px; margin:0px; padding:0px; vertical-align:top; width:${V2_LEFT_W}px; height:${SIG_H}px; max-width:${V2_LEFT_W}px; -ms-interpolation-mode:bicubic; background-color:${v.bg};" />`
     + `</td>`
-    // Outlook for Windows dark mode rewrites CSS `background-color` on light
-    // colours but preserves image-based backgrounds — so the right column uses
-    // a 4x4 tiled PNG of V2_BG_COLOR as its `background=` source. The bgcolor
-    // attribute + inline background-color stay as a fallback for clients that
-    // strip the background attribute.
-    + `<td width="${V2_RIGHT_W}" height="${SIG_H}" bgcolor="${v.bg}" background="${v.rightBg}" valign="top" align="right" style="width:${V2_RIGHT_W}px; height:${SIG_H}px; padding:14px 16px 0px 0px; margin:0px; border:0px; font-size:1px; line-height:1px; mso-line-height-rule:exactly; text-align:right; vertical-align:top; background-image:url('${v.rightBg}'); background-repeat:repeat; background-color:${v.bg}; color:#000000;">`
+    // Outlook for Windows dark mode rewrites BOTH CSS `background-color` and
+    // the `background=` attribute on light colours. VML `<v:rect><v:fill>` is
+    // rendered before Outlook's dark-mode colour remap, so a tiled VML fill is
+    // the only reliable way to keep the beige under Outlook dark mode. The
+    // CSS background-image / background-color / bgcolor / background remain as
+    // fallbacks for non-MSO clients. Padding moves onto an inner div so the
+    // v:rect can fill the full TD.
+    + `<td width="${V2_RIGHT_W}" height="${SIG_H}" bgcolor="${v.bg}" background="${v.rightBg}" valign="top" align="right" style="width:${V2_RIGHT_W}px; height:${SIG_H}px; padding:0px; margin:0px; border:0px; font-size:1px; line-height:1px; mso-line-height-rule:exactly; text-align:right; vertical-align:top; background-image:url('${v.rightBg}'); background-repeat:repeat; background-color:${v.bg}; color:#000000;">`
+    + `<!--[if gte mso 9]>`
+    + `<v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:${V2_RIGHT_W}px;height:${SIG_H}px;">`
+    + `<v:fill type="tile" src="${v.rightBg}" color="${v.bg}"/>`
+    + `<v:textbox inset="0,0,0,0">`
+    + `<![endif]-->`
+    + `<div style="padding:14px 16px 0px 0px; font-size:1px; line-height:1px; mso-line-height-rule:exactly; text-align:right;">`
     // Department logo (links to Website URL), right-aligned. Replaces the
     // previous 44px top spacer that V2.0 used.
     + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px; font-size:1px; line-height:1px;">`
@@ -937,6 +945,11 @@ function buildV2Html(leftImgUrl, logoImgUrl, rightBgUrl) {
     + `<td style="${tdReset} vertical-align:top;"><a href="${v.ventures}" target="_blank" style="${pillA('#EECAB0', 0)}">VENTURES</a></td>`
     + `</tr>`
     + `</table>`
+    + `</div>`
+    + `<!--[if gte mso 9]>`
+    + `</v:textbox>`
+    + `</v:rect>`
+    + `<![endif]-->`
     + `</td>`
     + `</tr>`
     + `</table>`;
