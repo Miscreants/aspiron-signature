@@ -55,7 +55,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.23</span></h1>
+  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.24</span></h1>
   <p class="lead">Bakes custom fonts into a PNG so email clients can’t strip them. Fill the fields → download the PNG → host it → copy the HTML.</p>
 
   <div class="grid">
@@ -1075,14 +1075,18 @@ async function renderSimplifiedBaked() {
 function buildSimplifiedHtml(imgUrl, href) {
   const safeImg = escapeAttr(imgUrl);
   const safeHref = escapeAttr(href);
-  const imgEl = `<img src="${safeImg}" width="${SIG_W}" height="${SIG_H}" border="0" alt="" style="display:block; border:0; outline:0; width:${SIG_W}px; height:${SIG_H}px; max-width:${SIG_W}px; -ms-interpolation-mode:bicubic;" />`;
+  // Responsive single image: width:100% + max-width caps it at native size on
+  // desktop and scales it down on narrow mobile screens, while height:auto keeps
+  // the 4:1 aspect so it never stretches. The width/height attributes remain for
+  // Word-engine Outlook, which uses them and ignores the CSS.
+  const imgEl = `<img src="${safeImg}" width="${SIG_W}" height="${SIG_H}" border="0" alt="" style="display:block; border:0; outline:0; width:100%; max-width:${SIG_W}px; height:auto; -ms-interpolation-mode:bicubic;" />`;
   const wrapped = safeHref
-    ? `<a href="${safeHref}" target="_blank" style="display:inline-block; line-height:0; font-size:0; text-decoration:none; border:0; outline:0;">${imgEl}</a>`
+    ? `<a href="${safeHref}" target="_blank" style="display:block; line-height:0; font-size:0; text-decoration:none; border:0; outline:0;">${imgEl}</a>`
     : imgEl;
   return `<!-- Aspiron Email Signature (Simplified) -->
-<table cellpadding="0" cellspacing="0" border="0" width="${SIG_W}" style="border-collapse:collapse; border-spacing:0; mso-table-lspace:0pt; mso-table-rspace:0pt; width:${SIG_W}px;">
+<table cellpadding="0" cellspacing="0" border="0" width="${SIG_W}" style="border-collapse:collapse; border-spacing:0; mso-table-lspace:0pt; mso-table-rspace:0pt; width:100%; max-width:${SIG_W}px;">
   <tr>
-    <td width="${SIG_W}" height="${SIG_H}" style="padding:0; margin:0; line-height:0; font-size:0; mso-line-height-rule:exactly; width:${SIG_W}px; height:${SIG_H}px;" valign="top">${wrapped}</td>
+    <td width="${SIG_W}" style="padding:0; margin:0; line-height:0; font-size:0; mso-line-height-rule:exactly; width:100%;" valign="top">${wrapped}</td>
   </tr>
 </table>`;
 }
@@ -1592,48 +1596,34 @@ async function renderBakedOption(bgColor) {
   return { canvas, icons, pills };
 }
 
-// Copy: bake → slice into tiles → upload → build the column-sliced image-map
-// table (buildTiledHtml). All images, no live-HTML styling, so it survives New
-// Outlook's sanitizer; icons + pills stay clickable via the sliced cells.
+// Copy: bake the whole signature onto ONE canvas and emit it as a SINGLE image
+// wrapped in one link to the website (buildSimplifiedHtml). A single image can't
+// mis-scale relative to itself, so it renders identically in every client,
+// scales cleanly on mobile, has no tile seams, and survives New Outlook — the
+// trade-off (chosen deliberately) is one clickable target instead of per-pill /
+// per-social links.
 async function copyForBgOption(opt) {
   bgOptStatus.textContent = `Baking ${opt.label}…`;
   try {
     await ensureFonts();
     if (!bgImage) throw new Error("Background not loaded");
-    const { canvas, icons, pills } = await renderBakedOption(opt.color);
-    const grid = buildTileGrid(icons, pills);
+    const { canvas } = await renderBakedOption(opt.color);
+    // Show the result immediately with a local data URL so it's visible even if
+    // the upload/clipboard step fails (the copy below uses the hosted URL).
+    document.getElementById(opt.panel).innerHTML = buildSimplifiedHtml(canvas.toDataURL("image/png"), els.website.value);
 
-    const jobs = [{
-      tile: grid.leftTile,
-      sx: grid.leftTile.x, sy: grid.leftTile.y,
-      sw: grid.leftTile.w, sh: grid.leftTile.h,
-      tag: "left",
-    }];
-    grid.rightRows.forEach((row, ri) => {
-      row.cells.forEach((cell, ci) => {
-        jobs.push({
-          tile: cell,
-          sx: grid.split + cell.x, sy: row.y,
-          sw: cell.w, sh: row.h,
-          tag: `r${ri}c${ci}`,
-        });
-      });
-    });
-
-    const base = slugify(els.name.value) + "-" + opt.label;
-    bgOptStatus.textContent = `Uploading ${jobs.length} tiles…`;
-    await Promise.all(jobs.map(async (j) => {
-      const blob = await sliceTileBlob(canvas, j.sx, j.sy, j.sw, j.sh);
-      j.tile.url = await uploadBlob(blob, `${base}-${j.tag}`);
-    }));
-
-    const html = buildTiledHtml(grid, opt.color);
+    const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+    bgOptStatus.textContent = "Uploading…";
+    const url = await uploadBlob(blob, slugify(els.name.value) + "-" + opt.label);
+    const html = buildSimplifiedHtml(url, els.website.value);
     const text = `${els.name.value} — ${els.position.value}\n${els.phone.value}\n${els.email.value}`;
-    document.getElementById(opt.panel).innerHTML = html;
-    // Synchronous copy-event handler keeps the HTML byte-for-byte (Chromium's
-    // ClipboardItem re-wraps the fragment and breaks the tiled table in Outlook).
-    copyHtmlViaEvent(html, text);
-    bgOptStatus.textContent = `Copied ${opt.label} (Outlook-safe) — paste into your email client`;
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([text], { type: "text/plain" }),
+      }),
+    ]);
+    bgOptStatus.textContent = `Copied ${opt.label} — paste into your email client`;
     setTimeout(() => bgOptStatus.textContent = "", 4000);
   } catch (e) {
     bgOptStatus.textContent = `${opt.label} copy failed: ` + e.message;
