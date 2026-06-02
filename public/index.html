@@ -55,7 +55,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.22</span></h1>
+  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.23</span></h1>
   <p class="lead">Bakes custom fonts into a PNG so email clients can’t strip them. Fill the fields → download the PNG → host it → copy the HTML.</p>
 
   <div class="grid">
@@ -650,7 +650,7 @@ async function uploadBlob(blob, slug) {
   return url;
 }
 
-function buildTiledHtml(grid) {
+function buildTiledHtml(grid, bgColor) {
   // Mac / Word-engine Outlook is strict: width/height must be inline CSS too
   // (not just HTML attrs), TDs need explicit widths, and tables need
   // border-spacing:0 + mso-table-lspace/rspace:0 to suppress phantom padding
@@ -658,6 +658,12 @@ function buildTiledHtml(grid) {
   // vertical-align:top is needed as CSS (not just valign="top") because
   // Outlook for Mac (WebKit-based) respects the CSS property and ignores the
   // HTML attribute inconsistently, which lets row seams drift by 1–2px.
+  // bgColor (beige option only): paint every table + cell that colour so any
+  // sub-pixel gap between tiles — from DPI scaling / rounding — fills with beige
+  // instead of showing a white hairline seam. Honoured by browsers, Word-engine
+  // Outlook, and Gmail (New Outlook strips it, but it has no seam problem).
+  const bgA = bgColor ? `bgcolor="${escapeAttr(bgColor)}" ` : "";
+  const bgC = bgColor ? `background-color:${bgColor}; ` : "";
   const tdBase = 'padding:0; margin:0; line-height:0; font-size:0; mso-line-height-rule:exactly; vertical-align:top;';
   // table-layout:fixed on every nested table prevents Outlook for Mac from
   // auto-sizing inner tables to image intrinsic dimensions and breaking the
@@ -680,11 +686,11 @@ function buildTiledHtml(grid) {
     // boundary.
     `<img src="${escapeAttr(url)}" width="${w}" height="${h}" border="0" hspace="0" vspace="0" alt="" style="display:block; border:0; outline:0; margin:0; padding:0; vertical-align:top; width:${w}px; height:${h}px; max-width:${w}px; -ms-interpolation-mode:bicubic;" />`;
   const td = (w, h, inner) =>
-    `<td width="${w}" height="${h}" style="${tdBase} width:${w}px; height:${h}px;" valign="top">${inner}</td>`;
+    `<td width="${w}" height="${h}" ${bgA}style="${tdBase} width:${w}px; height:${h}px; ${bgC}" valign="top">${inner}</td>`;
   const tbl = (w, inner) =>
-    `<table cellpadding="0" cellspacing="0" border="0" width="${w}" style="${tblBase} width:${w}px;"><tr>${inner}</tr></table>`;
+    `<table cellpadding="0" cellspacing="0" border="0" width="${w}" ${bgA}style="${tblBase} width:${w}px; ${bgC}"><tr>${inner}</tr></table>`;
   const tblRows = (w, rowsInner) =>
-    `<table cellpadding="0" cellspacing="0" border="0" width="${w}" style="${tblBase} width:${w}px;">${rowsInner}</table>`;
+    `<table cellpadding="0" cellspacing="0" border="0" width="${w}" ${bgA}style="${tblBase} width:${w}px; ${bgC}">${rowsInner}</table>`;
 
   const leftImg = img(grid.leftTile.url, grid.leftTile.w, grid.leftTile.h);
 
@@ -704,7 +710,7 @@ function buildTiledHtml(grid) {
   }).join("");
 
   return `<!-- Aspiron Email Signature (Outlook, column-sliced) -->`
-    + `<table cellpadding="0" cellspacing="0" border="0" width="${SIG_W}" style="${tblBase} width:${SIG_W}px;">`
+    + `<table cellpadding="0" cellspacing="0" border="0" width="${SIG_W}" ${bgA}style="${tblBase} width:${SIG_W}px; ${bgC}">`
     + `<tr>`
     + td(grid.leftTile.w, grid.leftTile.h, leftImg)
     + td(grid.rightW, SIG_H, tblRows(grid.rightW, rightRowsHtml))
@@ -1621,7 +1627,7 @@ async function copyForBgOption(opt) {
       j.tile.url = await uploadBlob(blob, `${base}-${j.tag}`);
     }));
 
-    const html = buildTiledHtml(grid);
+    const html = buildTiledHtml(grid, opt.color);
     const text = `${els.name.value} — ${els.position.value}\n${els.phone.value}\n${els.email.value}`;
     document.getElementById(opt.panel).innerHTML = html;
     // Synchronous copy-event handler keeps the HTML byte-for-byte (Chromium's
