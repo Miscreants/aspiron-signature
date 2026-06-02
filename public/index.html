@@ -55,7 +55,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.21</span></h1>
+  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.22</span></h1>
   <p class="lead">Bakes custom fonts into a PNG so email clients can’t strip them. Fill the fields → download the PNG → host it → copy the HTML.</p>
 
   <div class="grid">
@@ -1482,41 +1482,152 @@ async function updateBgOptionPreviews() {
 
 // Copy one option (beige or no-bg) to the clipboard, baking + uploading the two
 // PNGs to R2 first because Gmail strips base64 <img> src.
+// Bake the full signature (beige or transparent bg + text + logo + icons + pills)
+// onto ONE canvas, mirroring renderFullBaked but without the textured BG image.
+// Returns { canvas, icons, pills } so the tile grid can slice clickable regions.
+// This is the Outlook-safe render: New Outlook strips the live-HTML pills/icons,
+// so the copy path bakes them into image tiles instead.
+async function renderBakedOption(bgColor) {
+  const canvas = document.createElement("canvas");
+  canvas.width = SIG_W * DPR;
+  canvas.height = SIG_H * DPR;
+  const c = canvas.getContext("2d");
+  c.scale(DPR, DPR);
+  if (bgColor) { c.fillStyle = bgColor; c.fillRect(0, 0, SIG_W, SIG_H); }
+
+  // Text — same sizing/positions as the live preview (renderTransparentTextTile).
+  c.fillStyle = "#000000";
+  c.textBaseline = "top";
+  c.textAlign = "left";
+  const maxTextW = TL_LEFT_W - TEXT_X * 2;
+  let namePt = 20;
+  c.font = `600 ${namePt * PT_TO_PX}px "Zalando Sans Expanded", sans-serif`;
+  while (c.measureText(els.name.value).width > maxTextW && namePt > 12) {
+    namePt -= 1;
+    c.font = `600 ${namePt * PT_TO_PX}px "Zalando Sans Expanded", sans-serif`;
+  }
+  c.fillText(els.name.value, TEXT_X, NAME_Y);
+  let posPt = 14;
+  c.font = `400 ${posPt * PT_TO_PX}px "Zalando Sans", sans-serif`;
+  while (c.measureText(els.position.value).width > maxTextW && posPt > 10) {
+    posPt -= 1;
+    c.font = `400 ${posPt * PT_TO_PX}px "Zalando Sans", sans-serif`;
+  }
+  c.fillText(els.position.value, TEXT_X, POSITION_Y);
+  c.font = `600 11px "IBM Plex Mono", monospace`;
+  c.fillText("Phone: ", TEXT_X, PHONE_Y);
+  const phoneLabelW = c.measureText("Phone: ").width;
+  c.font = `400 11px "IBM Plex Mono", monospace`;
+  c.fillText(els.phone.value, TEXT_X + phoneLabelW, PHONE_Y);
+  c.font = `600 11px "IBM Plex Mono", monospace`;
+  c.fillText("Email: ", TEXT_X, EMAIL_Y);
+  const emailLabelW = c.measureText("Email: ").width;
+  c.font = `400 11px "IBM Plex Mono", monospace`;
+  c.fillText(els.email.value, TEXT_X + emailLabelW, EMAIL_Y);
+
+  // Logo (transparent) top-right, drawn over the bg — right edge at CONTENT_RIGHT.
+  const { canvas: logoCanvas, w: logoW, h: logoH } = await getLogoCanvas(null);
+  c.drawImage(logoCanvas, CONTENT_RIGHT - logoW, 14, logoW, logoH);
+
+  // Icons — right-aligned to CONTENT_RIGHT at ICON_Y (mirrors renderFullBaked).
+  const iconBg = DEPT_COLORS[currentDept];
+  const iconDefs = [
+    { text: "in", font: 'bold 13px Arial, Helvetica, sans-serif', href: els.linkedin.value },
+    { text: "▶",  font: '12px Arial, Helvetica, sans-serif',      href: els.youtube.value  },
+    { text: "⊕",  font: '13px Arial, Helvetica, sans-serif',      href: els.website.value  },
+  ];
+  const icons = [];
+  let right = CONTENT_RIGHT;
+  for (let i = iconDefs.length - 1; i >= 0; i--) {
+    const x = right - ICON_SIZE;
+    icons.unshift({ x, y: ICON_Y, w: ICON_SIZE, h: ICON_SIZE, href: iconDefs[i].href, def: iconDefs[i] });
+    right = x - ICON_GAP;
+  }
+  for (const it of icons) {
+    c.fillStyle = iconBg;
+    roundRect(c, it.x, it.y, it.w, it.h, ICON_RADIUS);
+    c.fill();
+    c.fillStyle = "#000000";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.font = it.def.font;
+    c.fillText(it.def.text, it.x + it.w / 2, it.y + it.h / 2 + 1);
+  }
+
+  // Pills — right-aligned at PILL_Y (lines up with the Email line).
+  const pillDefs = [
+    { bg: "#D8923E", text: "SEARCH",    href: els.search.value    },
+    { bg: "#FFA57E", text: "INFLUENCE", href: els.influence.value },
+    { bg: "#EECAB0", text: "VENTURES",  href: els.ventures.value  },
+  ];
+  c.font = `600 ${PILL_FONT_SIZE}px Arial, Helvetica, sans-serif`;
+  try { c.letterSpacing = "0.6px"; } catch (e) {}
+  const pills = [];
+  right = CONTENT_RIGHT;
+  for (let i = pillDefs.length - 1; i >= 0; i--) {
+    const trackedWidth = c.measureText(pillDefs[i].text).width + Math.max(0, pillDefs[i].text.length - 1) * 0.6;
+    const w = Math.ceil(trackedWidth + PILL_PAD_X * 2);
+    const x = right - w;
+    pills.unshift({ x, y: PILL_Y, w, h: PILL_H, href: pillDefs[i].href, def: pillDefs[i] });
+    right = x - PILL_GAP;
+  }
+  for (const p of pills) {
+    c.fillStyle = p.def.bg;
+    roundRect(c, p.x, p.y, p.w, p.h, PILL_RADIUS);
+    c.fill();
+    c.fillStyle = "#000000";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.font = `600 ${PILL_FONT_SIZE}px Arial, Helvetica, sans-serif`;
+    c.fillText(p.def.text, p.x + p.w / 2, p.y + p.h / 2 + 1);
+  }
+  try { c.letterSpacing = "0px"; } catch (e) {}
+
+  return { canvas, icons, pills };
+}
+
+// Copy: bake → slice into tiles → upload → build the column-sliced image-map
+// table (buildTiledHtml). All images, no live-HTML styling, so it survives New
+// Outlook's sanitizer; icons + pills stay clickable via the sliced cells.
 async function copyForBgOption(opt) {
   bgOptStatus.textContent = `Baking ${opt.label}…`;
   try {
     await ensureFonts();
     if (!bgImage) throw new Error("Background not loaded");
-    const textCanvas = await renderTransparentTextTile(opt.color);
-    const { canvas: logoCanvas, w: logoW, h: logoH } = await getLogoCanvas(opt.color);
-    const [textBlob, logoBlob] = await Promise.all([
-      new Promise(res => textCanvas.toBlob(res, "image/png")),
-      new Promise(res => logoCanvas.toBlob(res, "image/png")),
-    ]);
-    bgOptStatus.textContent = "Uploading…";
-    const slug = slugify(els.name.value);
-    // Beige needs a hosted tiled swatch for the VML <v:fill src>; Outlook ignores
-    // data: URIs there. Keyed to the colour so all signatures reuse one R2 object.
-    const tilePromise = opt.color
-      ? renderV2RightBgTile()
-          .then(c => new Promise(res => c.toBlob(res, "image/png")))
-          .then(b => uploadBlob(b, "bgtile-" + opt.color.replace("#", "").toLowerCase()))
-      : Promise.resolve("");
-    const [textUrl, logoUrl, tileUrl] = await Promise.all([
-      uploadBlob(textBlob, slug + "-bg-text"),
-      uploadBlob(logoBlob, slug + "-bg-logo-" + currentDept),
-      tilePromise,
-    ]);
-    const html = buildBgHtml(textUrl, logoUrl, logoW, logoH, opt.color, tileUrl);
+    const { canvas, icons, pills } = await renderBakedOption(opt.color);
+    const grid = buildTileGrid(icons, pills);
+
+    const jobs = [{
+      tile: grid.leftTile,
+      sx: grid.leftTile.x, sy: grid.leftTile.y,
+      sw: grid.leftTile.w, sh: grid.leftTile.h,
+      tag: "left",
+    }];
+    grid.rightRows.forEach((row, ri) => {
+      row.cells.forEach((cell, ci) => {
+        jobs.push({
+          tile: cell,
+          sx: grid.split + cell.x, sy: row.y,
+          sw: cell.w, sh: row.h,
+          tag: `r${ri}c${ci}`,
+        });
+      });
+    });
+
+    const base = slugify(els.name.value) + "-" + opt.label;
+    bgOptStatus.textContent = `Uploading ${jobs.length} tiles…`;
+    await Promise.all(jobs.map(async (j) => {
+      const blob = await sliceTileBlob(canvas, j.sx, j.sy, j.sw, j.sh);
+      j.tile.url = await uploadBlob(blob, `${base}-${j.tag}`);
+    }));
+
+    const html = buildTiledHtml(grid);
     const text = `${els.name.value} — ${els.position.value}\n${els.phone.value}\n${els.email.value}`;
     document.getElementById(opt.panel).innerHTML = html;
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        "text/html": new Blob([html], { type: "text/html" }),
-        "text/plain": new Blob([text], { type: "text/plain" }),
-      }),
-    ]);
-    bgOptStatus.textContent = `Copied ${opt.label} — paste into your email client`;
+    // Synchronous copy-event handler keeps the HTML byte-for-byte (Chromium's
+    // ClipboardItem re-wraps the fragment and breaks the tiled table in Outlook).
+    copyHtmlViaEvent(html, text);
+    bgOptStatus.textContent = `Copied ${opt.label} (Outlook-safe) — paste into your email client`;
     setTimeout(() => bgOptStatus.textContent = "", 4000);
   } catch (e) {
     bgOptStatus.textContent = `${opt.label} copy failed: ` + e.message;
