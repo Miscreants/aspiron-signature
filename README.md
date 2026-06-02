@@ -4,19 +4,19 @@ Web app that bakes custom fonts (Zalando Sans Expanded, Zalando Sans, IBM Plex M
 
 ## Stack
 - **Cloudflare Worker** with **Static Assets** — serves `/public` + `/api/upload` handler
-- **Cloudflare R2** — public bucket `aspiron-signatures`
+- **Cloudflare R2** — public bucket `aspiron`
 
 ## First-time Cloudflare setup
 
-1. **R2 bucket** `aspiron-signatures` → public access via r2.dev enabled (`https://pub-376c070665f24d80ac2828a67b43160a.r2.dev`).
+1. **R2 bucket** `aspiron` → public access via custom domain (`https://aspiron-r2.miscreants.dev`).
 2. **Workers project** → connect this GitHub repo. Dashboard settings:
    - Build command: *(empty)*
    - Deploy command: `npx wrangler deploy`
-3. **Worker → Settings → Bindings**: add **R2 bucket** binding `SIGNATURES` → `aspiron-signatures`.
+3. **Worker → Settings → Bindings**: add **R2 bucket** binding `SIGNATURES` → `aspiron`.
 4. **Worker → Settings → Variables and Secrets**: add **Secret** `UPLOAD_SECRET` = long random string.
 5. **R2 → Settings → CORS**:
    ```json
-   [{"AllowedOrigins":["https://aspiron-signature.<subdomain>.workers.dev","http://localhost:8787"],"AllowedMethods":["GET","PUT","POST","HEAD"],"AllowedHeaders":["*"],"MaxAgeSeconds":3600}]
+   [{"AllowedOrigins":["https://aspiron-signatures.miscreants.dev","http://localhost:8787"],"AllowedMethods":["GET","PUT","POST","HEAD"],"AllowedHeaders":["*"],"MaxAgeSeconds":3600}]
    ```
 
 ## Local dev

@@ -5,7 +5,7 @@ interface Env {
   R2_PUBLIC_BASE?: string;
 }
 
-const PUBLIC_BASE_FALLBACK = "https://pub-376c070665f24d80ac2828a67b43160a.r2.dev";
+const PUBLIC_BASE_FALLBACK = "https://aspiron-r2.miscreants.dev";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {

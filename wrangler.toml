@@ -8,7 +8,7 @@ binding = "ASSETS"
 
 [[r2_buckets]]
 binding = "SIGNATURES"
-bucket_name = "aspiron-signatures"
+bucket_name = "aspiron"
 
 [vars]
-R2_PUBLIC_BASE = "https://pub-376c070665f24d80ac2828a67b43160a.r2.dev"
+R2_PUBLIC_BASE = "https://aspiron-r2.miscreants.dev"
