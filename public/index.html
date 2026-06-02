@@ -34,11 +34,28 @@
   details { margin-top:14px; }
   summary { cursor:pointer; font-size:13px; color:var(--muted); }
   .dept-btn.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .bg-opt { margin-bottom:16px; }
+  .bg-opt:last-of-type { margin-bottom:0; }
+  .bg-opt-head { display:flex; justify-content:space-between; align-items:center; margin:0 0 6px; }
+  .bg-opt-head .name { font-size:13px; font-weight:600; color:var(--ink); }
+  .bg-opt-head button { padding:6px 12px; }
+  .opt-preview { border:1px solid var(--line); border-radius:4px; overflow:auto; background:#fff; }
+  /* Checkerboard makes the "no background" option read as transparent rather
+     than white, so it's clear the signature adapts to the email's background. */
+  .checker {
+    background-image:
+      linear-gradient(45deg, #e7e7e7 25%, transparent 25%),
+      linear-gradient(-45deg, #e7e7e7 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #e7e7e7 75%),
+      linear-gradient(-45deg, transparent 75%, #e7e7e7 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.18</span></h1>
+  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.19</span></h1>
   <p class="lead">Bakes custom fonts into a PNG so email clients can’t strip them. Fill the fields → download the PNG → host it → copy the HTML.</p>
 
   <div class="grid">
@@ -101,6 +118,28 @@
           <span class="status" id="status"></span>
         </div>
         <div class="hint" id="font-status" style="display:none;"></div>
+      </div>
+
+      <div class="preview" id="bg-options" style="margin-top:18px;">
+        <div class="hint" style="margin-bottom:12px;">Background style — no background image. Compare and copy the one that works best.</div>
+
+        <div class="bg-opt">
+          <div class="bg-opt-head">
+            <span class="name">Beige background</span>
+            <button id="btn-copy-beige" class="secondary">Copy beige</button>
+          </div>
+          <div id="preview-beige" class="opt-preview"></div>
+        </div>
+
+        <div class="bg-opt">
+          <div class="bg-opt-head">
+            <span class="name">No background</span>
+            <button id="btn-copy-none" class="secondary">Copy no-bg</button>
+          </div>
+          <div id="preview-none" class="opt-preview checker"></div>
+        </div>
+
+        <div class="hint" id="bg-options-status" style="margin-top:8px;"></div>
       </div>
     </div>
   </div>
@@ -372,8 +411,10 @@ document.querySelectorAll(".dept-btn").forEach(btn => {
     btn.classList.add("active");
     try {
       bgImage = await loadImage(DEPT_BACKGROUNDS[currentDept]);
+      delete logoCanvasCache[currentDept];
       draw();
       updateLivePreview();
+      updateBgOptionPreviews();
       scheduleUpload();
     } catch (e) {
       els.fontStatus.textContent = "Failed to load background for " + currentDept;
@@ -1067,11 +1108,429 @@ async function copyForSimplified() {
 }
 document.getElementById("btn-copy-simplified").addEventListener("click", copyForSimplified);
 
+// -- Background-style options: flat beige colour OR no background -------------
+// Both options drop the textured BG *image* (the gradient + swoosh art). They
+// share the same building blocks — text lines baked in brand fonts, the
+// cropped/keyed Aspiron logo, and live-HTML icons + pills — differing only in
+// the background behind those layers:
+//   • No background: transparent text tile + transparent logo, no bgcolor/VML;
+//     the email body shows through.
+//   • Beige: opaque beige-baked text tile (dark-mode-proof) + beige-backed logo,
+//     bgcolor/background-color for normal clients, and a VML tiled fill on the
+//     right column so Outlook for Windows dark mode can't recolour the beige.
+// No textured-BG image is referenced either way.
+//
+// CAVEAT (dark mode): the baked text + wordmark are black, so on a dark email
+// background they will be hard to read. This path is intended for clients that
+// render signatures on a light surface. Black is baked into the PNG and cannot
+// be recolored by the client.
+const TL_LEFT_W = 338;          // text column, mirrors V2's split
+const TL_RIGHT_W = SIG_W - TL_LEFT_W;
+// Logo crop region inside the original 600x150 BG. Taller than V2's crop so the
+// SEARCH / INFLUENCE subtitle under the wordmark is included; departments with
+// no subtitle (Group, Ventures) just get transparent space below, which is
+// harmless once the beige is keyed out.
+const TL_LOGO_SRC_X = 408;
+const TL_LOGO_SRC_Y = 12;
+const TL_LOGO_SRC_W = 184;
+const TL_LOGO_SRC_H = 58;
+// Beige color-key tuning. A pixel within KEY_BASE of any top-edge background
+// sample is made fully transparent; KEY_BASE..KEY_BASE+KEY_FEATHER ramps alpha
+// so glyph edges feather instead of leaving a hard beige fringe. KEY_BASE is
+// deliberately below the gold/coral/brown mark distances (~80-150) but the
+// Ventures champagne mark (~50 from beige) sits close to the threshold — drop a
+// transparent aspiron-logo-ventures.png into /public to bypass keying there.
+const KEY_BASE = 42;
+const KEY_FEATHER = 22;
+
+const LOGO_ASSETS = {
+  group: "aspiron-logo-group.png",
+  search: "aspiron-logo-search.png",
+  influence: "aspiron-logo-influence.png",
+  ventures: "aspiron-logo-ventures.png",
+};
+
+function colorDist(r1, g1, b1, r2, g2, b2) {
+  const dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
+// Crop the logo out of the current department BG and knock the beige out to
+// transparency. The gold "swoosh" intrudes into the BOTTOM of the crop, so we
+// sample the background reference strictly from the TOP edge (always clean beige
+// above the wordmark, never the swoosh) and key each pixel against the nearest
+// top-edge sample. Sampling the corners — as an earlier version did — picked up
+// swoosh colour and then keyed the gold/champagne logo mark out with it.
+function keyLogoFromBg(displayW, displayH) {
+  const scale = bgImage.naturalWidth ? bgImage.naturalWidth / SIG_W : 1;
+  const sx = TL_LOGO_SRC_X * scale, sy = TL_LOGO_SRC_Y * scale;
+  const sw = TL_LOGO_SRC_W * scale, sh = TL_LOGO_SRC_H * scale;
+
+  // Sample at full crop resolution so the key reads true source pixels, then
+  // downscale to the @2x display canvas afterwards.
+  const work = document.createElement("canvas");
+  work.width = Math.round(sw);
+  work.height = Math.round(sh);
+  const wc = work.getContext("2d");
+  wc.drawImage(bgImage, sx, sy, sw, sh, 0, 0, work.width, work.height);
+  const img = wc.getImageData(0, 0, work.width, work.height);
+  const d = img.data;
+  const W = work.width, H = work.height;
+  // Background references: top two rows across the full width. This captures the
+  // horizontal beige gradient while staying above the logo and clear of the
+  // swoosh.
+  const refs = [];
+  const topRows = Math.max(1, Math.round(H * 0.05));
+  const step = Math.max(1, Math.floor(W / 24));
+  for (let cx = 0; cx < W; cx += step) {
+    for (let cy = 0; cy < topRows; cy++) {
+      const i = (cy * W + cx) * 4;
+      refs.push([d[i], d[i + 1], d[i + 2]]);
+    }
+  }
+  for (let p = 0; p < d.length; p += 4) {
+    const r = d[p], g = d[p + 1], b = d[p + 2];
+    let min = Infinity;
+    for (const [cr, cg, cb] of refs) {
+      const dist = colorDist(r, g, b, cr, cg, cb);
+      if (dist < min) min = dist;
+    }
+    if (min <= KEY_BASE) {
+      d[p + 3] = 0;
+    } else if (min < KEY_BASE + KEY_FEATHER) {
+      d[p + 3] = Math.round(255 * ((min - KEY_BASE) / KEY_FEATHER));
+    }
+  }
+  wc.putImageData(img, 0, 0);
+
+  const out = document.createElement("canvas");
+  out.width = displayW * DPR;
+  out.height = displayH * DPR;
+  out.getContext("2d").drawImage(work, 0, 0, out.width, out.height);
+  return out;
+}
+
+// Box the logo fits within, in CSS px. Width/height are derived per-asset to
+// preserve aspect ratio (so a real transparent logo isn't stretched), capped to
+// this box so it always clears the icons + pills inside the 150px-tall column.
+const LOGO_MAX_W = 200;
+const LOGO_MAX_H = 56;
+
+// Returns { canvas, w, h }: a TRANSPARENT logo plus the CSS dimensions to draw
+// it at. Prefers a hand-made transparent asset (aspiron-logo-<dept>.png in
+// /public); falls back to keying the beige out of the baked BG (fixed crop box)
+// only when no asset exists. The supplied assets are full 600x150 canvases with
+// the logo in one corner, so we first trim to the opaque bounding box (else the
+// empty margin would shrink the logo), keep it at native resolution for
+// crispness, and report CSS dims fitted into LOGO_MAX_W x LOGO_MAX_H (never
+// upscaled past native).
+async function renderTransparentLogo() {
+  try {
+    const asset = await loadImage(LOGO_ASSETS[currentDept]);
+    const natW = asset.naturalWidth, natH = asset.naturalHeight;
+    if (!natW || !natH) throw new Error("logo asset has no dimensions");
+    // Find the opaque bounding box at native resolution.
+    const probe = document.createElement("canvas");
+    probe.width = natW;
+    probe.height = natH;
+    const pc = probe.getContext("2d");
+    pc.drawImage(asset, 0, 0);
+    const data = pc.getImageData(0, 0, natW, natH).data;
+    let minX = natW, minY = natH, maxX = -1, maxY = -1;
+    for (let y = 0; y < natH; y++) {
+      for (let x = 0; x < natW; x++) {
+        if (data[(y * natW + x) * 4 + 3] > 8) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < minX) throw new Error("logo asset is fully transparent");
+    const tw = maxX - minX + 1, th = maxY - minY + 1;
+    const scale = Math.min(LOGO_MAX_W / tw, LOGO_MAX_H / th, 1);
+    const w = Math.max(1, Math.round(tw * scale));
+    const h = Math.max(1, Math.round(th * scale));
+    // Keep the canvas at native trimmed resolution; the <img> downscales it to
+    // w x h, which is crisper than baking the downscale in here.
+    const canvas = document.createElement("canvas");
+    canvas.width = tw;
+    canvas.height = th;
+    canvas.getContext("2d").drawImage(asset, minX, minY, tw, th, 0, 0, tw, th);
+    return { canvas, w, h };
+  } catch (e) {
+    return { canvas: keyLogoFromBg(TL_LOGO_SRC_W, TL_LOGO_SRC_H), w: TL_LOGO_SRC_W, h: TL_LOGO_SRC_H };
+  }
+}
+
+// Text lines baked onto a canvas. bgColor null => transparent (drops onto the
+// email's own background, the "No background" option). bgColor set => opaque
+// flat fill, which makes the left column dark-mode-proof in Outlook without
+// needing VML (an image can't be colour-remapped). Same auto-shrink as V2.
+async function renderTransparentTextTile(bgColor) {
+  const canvas = document.createElement("canvas");
+  canvas.width = TL_LEFT_W * DPR;
+  canvas.height = SIG_H * DPR;
+  const c = canvas.getContext("2d");
+  c.scale(DPR, DPR);
+  if (bgColor) { c.fillStyle = bgColor; c.fillRect(0, 0, TL_LEFT_W, SIG_H); }
+  c.fillStyle = "#000000";
+  c.textBaseline = "top";
+  c.textAlign = "left";
+
+  const maxTextW = TL_LEFT_W - TEXT_X * 2;
+  let namePt = 20;
+  c.font = `600 ${namePt * PT_TO_PX}px "Zalando Sans Expanded", sans-serif`;
+  while (c.measureText(els.name.value).width > maxTextW && namePt > 12) {
+    namePt -= 1;
+    c.font = `600 ${namePt * PT_TO_PX}px "Zalando Sans Expanded", sans-serif`;
+  }
+  c.fillText(els.name.value, TEXT_X, NAME_Y);
+
+  let posPt = 14;
+  c.font = `400 ${posPt * PT_TO_PX}px "Zalando Sans", sans-serif`;
+  while (c.measureText(els.position.value).width > maxTextW && posPt > 10) {
+    posPt -= 1;
+    c.font = `400 ${posPt * PT_TO_PX}px "Zalando Sans", sans-serif`;
+  }
+  c.fillText(els.position.value, TEXT_X, POSITION_Y);
+  c.font = `600 11px "IBM Plex Mono", monospace`;
+  c.fillText("Phone: ", TEXT_X, PHONE_Y);
+  const phoneLabelW = c.measureText("Phone: ").width;
+  c.font = `400 11px "IBM Plex Mono", monospace`;
+  c.fillText(els.phone.value, TEXT_X + phoneLabelW, PHONE_Y);
+  c.font = `600 11px "IBM Plex Mono", monospace`;
+  c.fillText("Email: ", TEXT_X, EMAIL_Y);
+  const emailLabelW = c.measureText("Email: ").width;
+  c.font = `400 11px "IBM Plex Mono", monospace`;
+  c.fillText(els.email.value, TEXT_X + emailLabelW, EMAIL_Y);
+  return canvas;
+}
+
+function buildBgHtml(textImgUrl, logoImgUrl, logoW, logoH, bgColor, bgTileUrl) {
+  const v = {
+    linkedin: escapeAttr(els.linkedin.value),
+    youtube: escapeAttr(els.youtube.value),
+    website: escapeAttr(els.website.value),
+    search: escapeAttr(els.search.value),
+    influence: escapeAttr(els.influence.value),
+    ventures: escapeAttr(els.ventures.value),
+    text: escapeAttr(textImgUrl),
+    logo: escapeAttr(logoImgUrl),
+    iconBg: DEPT_COLORS[currentDept],
+    tile: escapeAttr(bgTileUrl || ""),
+  };
+  // bgColor == null  -> fully transparent table; the signature inherits the
+  //                     email body's background ("No background" option).
+  // bgColor == "#.."  -> flat colour ("Beige background" option). For most
+  //                     clients that's the bgcolor attr + background-color CSS.
+  //                     But Outlook on Windows (incl. dark mode) rewrites those
+  //                     light colours, so the right column ALSO gets a VML tiled
+  //                     fill — rendered before Outlook's dark-mode remap, it
+  //                     keeps the beige. The left column is an OPAQUE beige image
+  //                     (renderTransparentTextTile with a fill), which dark mode
+  //                     can't touch, so it needs no VML. bgTileUrl must be a
+  //                     hosted URL (Outlook ignores data: URIs for v:fill); it is
+  //                     unused when bgColor is null or in non-Outlook previews.
+  // There is NO background-image of the textured BG anywhere — that art is gone.
+  const bgAttr = bgColor ? `bgcolor="${escapeAttr(bgColor)}" ` : "";
+  const bgCss = bgColor ? `background-color:${bgColor}; ` : "";
+  // Right-column image-background fallback (tiled beige swatch) + VML, applied
+  // only in the beige option. Empty strings collapse cleanly for "No background"
+  // and for previews (where bgTileUrl is "").
+  const rightBgAttr = (bgColor && v.tile) ? `background="${v.tile}" ` : "";
+  const rightBgCss = (bgColor && v.tile) ? `background-image:url('${v.tile}'); background-repeat:repeat; ` : "";
+  const vmlOpen = bgColor
+    ? `<!--[if gte mso 9]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:${TL_RIGHT_W}px;height:${SIG_H}px;"><v:fill type="tile" src="${v.tile}" color="${escapeAttr(bgColor)}"/><v:textbox inset="0,0,0,0"><![endif]-->`
+    : "";
+  const vmlClose = bgColor
+    ? `<!--[if gte mso 9]></v:textbox></v:rect><![endif]-->`
+    : "";
+  const tblReset = 'border-collapse:collapse; border-spacing:0px; mso-table-lspace:0pt; mso-table-rspace:0pt; padding:0px; margin:0px;';
+  const tdReset  = 'padding:0px; margin:0px; border:0px; font-size:1px; line-height:1px; mso-line-height-rule:exactly;';
+  const aReset   = 'margin:0px; border:0px; outline:0px; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; mso-line-height-rule:exactly;';
+  const iconA = (bg, fs, fw, mr) =>
+    `display:inline-block; width:28px; height:28px; box-sizing:border-box; background-color:${bg}; border-radius:6px; text-align:center; vertical-align:top; line-height:28px; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0px; ${aReset} margin-right:${mr}px;`;
+  const pillA = (bg, mr) =>
+    `display:inline-block; box-sizing:border-box; background-color:${bg}; color:#000000; font-family:Arial, Helvetica, sans-serif; font-size:9px; font-weight:600; font-style:normal; text-decoration:none; text-transform:none; padding:5px 12px; border-radius:9px; line-height:9px; letter-spacing:0.6px; vertical-align:top; white-space:nowrap; ${aReset} margin-right:${mr}px;`;
+
+  // Vertical placement inside the 150px right column. The logo pins to the top
+  // (TOP_PAD); a spacer then drops the icons to ICON_Y and the pills to PILL_Y so
+  // the PILLS line up with the Email line baked into the left tile (PILL_Y 110
+  // centres the 19px pill on EMAIL_Y 114). gapLogoIcons absorbs the variable logo
+  // height to keep those Y positions fixed regardless of logo size.
+  const TOP_PAD = 14;
+  const gapLogoIcons = Math.max(0, ICON_Y - TOP_PAD - logoH);
+  const gapIconsPills = Math.max(0, PILL_Y - (ICON_Y + ICON_SIZE));
+  const vSpacer = (px) => px > 0
+    ? `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; ${tblReset}"><tr><td height="${px}" width="100%" style="width:100%; height:${px}px; padding:0px; margin:0px; border:0px; font-size:1px; line-height:${px}px; mso-line-height-rule:exactly;">&#8203;</td></tr></table>`
+    : "";
+
+  return `<!-- Aspiron Email Signature (no background image; ${bgColor ? 'flat ' + bgColor : 'transparent'}) -->`
+    + `<table cellpadding="0" cellspacing="0" border="0" width="${SIG_W}" ${bgAttr}style="${tblReset} width:${SIG_W}px; ${bgCss}font-family:Arial, Helvetica, sans-serif; font-size:1px; line-height:1px; color:#000000;">`
+    + `<tr>`
+    + `<td width="${TL_LEFT_W}" height="${SIG_H}" ${bgAttr}valign="top" style="${tdReset} width:${TL_LEFT_W}px; height:${SIG_H}px; ${bgCss}vertical-align:top;">`
+    + `<img src="${v.text}" width="${TL_LEFT_W}" height="${SIG_H}" border="0" hspace="0" vspace="0" alt="${escapeAttr(els.name.value)}" style="display:block; border:0px; outline:0px; margin:0px; padding:0px; vertical-align:top; width:${TL_LEFT_W}px; height:${SIG_H}px; max-width:${TL_LEFT_W}px; -ms-interpolation-mode:bicubic;" />`
+    + `</td>`
+    + `<td width="${TL_RIGHT_W}" height="${SIG_H}" ${bgAttr}${rightBgAttr}valign="top" align="right" style="${tdReset} width:${TL_RIGHT_W}px; height:${SIG_H}px; ${bgCss}${rightBgCss}vertical-align:top; text-align:right;">`
+    + vmlOpen
+    // Top-anchored: logo pins top-right, then a spacer drops the icons to ICON_Y
+    // and the pills to PILL_Y so the pills line up vertically with the Email line
+    // on the left tile. gapLogoIcons absorbs the variable logo height.
+    + `<div style="padding:${TOP_PAD}px 16px 0px 0px; font-size:1px; line-height:1px; mso-line-height-rule:exactly; text-align:right;">`
+    // Logo (links to Website), right-aligned.
+    + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px; font-size:1px; line-height:1px;">`
+    + `<tr><td style="${tdReset}">`
+    + `<a href="${v.website}" target="_blank" style="display:inline-block; line-height:1px; font-size:1px; text-decoration:none; border:0px; outline:0px; margin:0px; padding:0px; vertical-align:top;">`
+    + `<img src="${v.logo}" width="${logoW}" height="${logoH}" border="0" hspace="0" vspace="0" alt="Aspiron" style="display:block; border:0px; outline:0px; margin:0px; padding:0px; vertical-align:top; width:${logoW}px; height:${logoH}px; max-width:${logoW}px; -ms-interpolation-mode:bicubic;" />`
+    + `</a>`
+    + `</td></tr>`
+    + `</table>`
+    // Spacer: drop the icons down to ICON_Y.
+    + vSpacer(gapLogoIcons)
+    // Icons — each anchor in its own cell with bg-free spacer cells between, so
+    // adjacent rounded icons never leak their fill into the gap.
+    + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px; font-size:1px; line-height:1px;">`
+    + `<tr>`
+    + `<td style="${tdReset} vertical-align:top;"><a href="${v.linkedin}" target="_blank" style="${iconA(v.iconBg, 13, 700, 0)}">in</a></td>`
+    + `<td width="4" style="${tdReset} width:4px; font-size:1px; line-height:1px;">&#8203;</td>`
+    + `<td style="${tdReset} vertical-align:top;"><a href="${v.youtube}" target="_blank" style="${iconA(v.iconBg, 12, 400, 0)}">&#9654;</a></td>`
+    + `<td width="4" style="${tdReset} width:4px; font-size:1px; line-height:1px;">&#8203;</td>`
+    + `<td style="${tdReset} vertical-align:top;"><a href="${v.website}" target="_blank" style="${iconA(v.iconBg, 13, 400, 0)}">&#8853;</a></td>`
+    + `</tr>`
+    + `</table>`
+    // Spacer: icons -> pills (so pills land on PILL_Y / the Email line).
+    + vSpacer(gapIconsPills)
+    + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px; font-size:1px; line-height:1px;">`
+    + `<tr>`
+    + `<td style="${tdReset} vertical-align:top;"><a href="${v.search}" target="_blank" style="${pillA('#D8923E', 0)}">SEARCH</a></td>`
+    + `<td width="4" style="${tdReset} width:4px; font-size:1px; line-height:1px;">&#8203;</td>`
+    + `<td style="${tdReset} vertical-align:top;"><a href="${v.influence}" target="_blank" style="${pillA('#FFA57E', 0)}">INFLUENCE</a></td>`
+    + `<td width="4" style="${tdReset} width:4px; font-size:1px; line-height:1px;">&#8203;</td>`
+    + `<td style="${tdReset} vertical-align:top;"><a href="${v.ventures}" target="_blank" style="${pillA('#EECAB0', 0)}">VENTURES</a></td>`
+    + `</tr>`
+    + `</table>`
+    + `</div>`
+    + vmlClose
+    + `</td>`
+    + `</tr>`
+    + `</table>`;
+}
+
+// Per-department cache of the transparent logo (canvas + CSS dims). It depends
+// only on the department BG (not the text fields or chosen background), so we
+// build it once per department and derive the beige-backed variant cheaply.
+// Returns { canvas, w, h }.
+const logoCanvasCache = {};
+async function getLogoCanvas(bgColor) {
+  if (!logoCanvasCache[currentDept]) {
+    logoCanvasCache[currentDept] = await renderTransparentLogo();
+  }
+  const { canvas: base, w, h } = logoCanvasCache[currentDept];
+  if (!bgColor) return { canvas: base, w, h };
+  // Beige option: flatten the transparent logo onto an opaque beige fill so it
+  // doesn't depend on alpha showing the VML/cell colour through in Outlook.
+  // Keyed-out areas (incl. Ventures' pale mark) become flat beige and vanish
+  // cleanly against the beige background.
+  const out = document.createElement("canvas");
+  out.width = base.width;
+  out.height = base.height;
+  const oc = out.getContext("2d");
+  oc.fillStyle = bgColor;
+  oc.fillRect(0, 0, out.width, out.height);
+  oc.drawImage(base, 0, 0);
+  return { canvas: out, w, h };
+}
+
+const BG_OPTIONS = [
+  { color: V2_BG_COLOR, panel: "preview-beige", label: "beige" },
+  { color: null,        panel: "preview-none",  label: "no-bg" },
+];
+const bgOptStatus = document.getElementById("bg-options-status");
+
+// Render BOTH option previews with local data URLs (no upload needed). Each
+// option bakes its own text tile + logo variant (opaque beige vs transparent),
+// sharing the keyed-logo base via the per-department cache. Browsers ignore the
+// VML, so previews pass "" for the tile URL and lean on the bgcolor fallback to
+// show the beige. A tiny busy/queue guard coalesces rapid keystrokes so we never
+// overlap two renders.
+let bgPreviewBusy = false, bgPreviewQueued = false;
+async function updateBgOptionPreviews() {
+  if (!bgImage || !fontsReady) return;
+  if (bgPreviewBusy) { bgPreviewQueued = true; return; }
+  bgPreviewBusy = true;
+  try {
+    for (const o of BG_OPTIONS) {
+      const el = document.getElementById(o.panel);
+      if (!el) continue;
+      const textCanvas = await renderTransparentTextTile(o.color);
+      const { canvas: logoCanvas, w: logoW, h: logoH } = await getLogoCanvas(o.color);
+      el.innerHTML = buildBgHtml(
+        textCanvas.toDataURL("image/png"),
+        logoCanvas.toDataURL("image/png"),
+        logoW, logoH, o.color, "",
+      );
+    }
+  } catch (e) {
+    if (bgOptStatus) bgOptStatus.textContent = "Preview error: " + e.message;
+  } finally {
+    bgPreviewBusy = false;
+    if (bgPreviewQueued) { bgPreviewQueued = false; updateBgOptionPreviews(); }
+  }
+}
+
+// Copy one option (beige or no-bg) to the clipboard, baking + uploading the two
+// PNGs to R2 first because Gmail strips base64 <img> src.
+async function copyForBgOption(opt) {
+  bgOptStatus.textContent = `Baking ${opt.label}…`;
+  try {
+    await ensureFonts();
+    if (!bgImage) throw new Error("Background not loaded");
+    const textCanvas = await renderTransparentTextTile(opt.color);
+    const { canvas: logoCanvas, w: logoW, h: logoH } = await getLogoCanvas(opt.color);
+    const [textBlob, logoBlob] = await Promise.all([
+      new Promise(res => textCanvas.toBlob(res, "image/png")),
+      new Promise(res => logoCanvas.toBlob(res, "image/png")),
+    ]);
+    bgOptStatus.textContent = "Uploading…";
+    const slug = slugify(els.name.value);
+    // Beige needs a hosted tiled swatch for the VML <v:fill src>; Outlook ignores
+    // data: URIs there. Keyed to the colour so all signatures reuse one R2 object.
+    const tilePromise = opt.color
+      ? renderV2RightBgTile()
+          .then(c => new Promise(res => c.toBlob(res, "image/png")))
+          .then(b => uploadBlob(b, "bgtile-" + opt.color.replace("#", "").toLowerCase()))
+      : Promise.resolve("");
+    const [textUrl, logoUrl, tileUrl] = await Promise.all([
+      uploadBlob(textBlob, slug + "-bg-text"),
+      uploadBlob(logoBlob, slug + "-bg-logo-" + currentDept),
+      tilePromise,
+    ]);
+    const html = buildBgHtml(textUrl, logoUrl, logoW, logoH, opt.color, tileUrl);
+    const text = `${els.name.value} — ${els.position.value}\n${els.phone.value}\n${els.email.value}`;
+    document.getElementById(opt.panel).innerHTML = html;
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([text], { type: "text/plain" }),
+      }),
+    ]);
+    bgOptStatus.textContent = `Copied ${opt.label} — paste into your email client`;
+    setTimeout(() => bgOptStatus.textContent = "", 4000);
+  } catch (e) {
+    bgOptStatus.textContent = `${opt.label} copy failed: ` + e.message;
+    setTimeout(() => bgOptStatus.textContent = "", 5000);
+  }
+}
+document.getElementById("btn-copy-beige").addEventListener("click", () => copyForBgOption(BG_OPTIONS[0]));
+document.getElementById("btn-copy-none").addEventListener("click", () => copyForBgOption(BG_OPTIONS[1]));
+
 const textInputs = [els.name, els.position, els.phone, els.email];
 const linkInputs = [els.linkedin, els.youtube, els.website, els.search, els.influence, els.ventures];
 
-textInputs.forEach(i => i.addEventListener("input", () => { draw(); updateLivePreview(); scheduleUpload(); }));
-linkInputs.forEach(i => i.addEventListener("input", updateLivePreview));
+textInputs.forEach(i => i.addEventListener("input", () => { draw(); updateLivePreview(); updateBgOptionPreviews(); scheduleUpload(); }));
+linkInputs.forEach(i => i.addEventListener("input", () => { updateLivePreview(); updateBgOptionPreviews(); }));
 
 (async () => {
   document.querySelector('.dept-btn[data-dept="group"]').classList.add("active");
@@ -1084,7 +1543,8 @@ linkInputs.forEach(i => i.addEventListener("input", updateLivePreview));
   await ensureFonts();
   draw();
   updateLivePreview();
-  setTimeout(() => { draw(); updateLivePreview(); scheduleUpload(); }, 250);
+  updateBgOptionPreviews();
+  setTimeout(() => { draw(); updateLivePreview(); updateBgOptionPreviews(); scheduleUpload(); }, 250);
 })();
 </script>
 </body>
