@@ -55,7 +55,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.25</span></h1>
+  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.26</span></h1>
   <p class="lead">Bakes custom fonts into a PNG so email clients can’t strip them. Fill the fields → download the PNG → host it → copy the HTML.</p>
 
   <div class="grid">
@@ -154,6 +154,20 @@
           <div id="preview-live" class="opt-preview"></div>
         </div>
         <div class="hint" id="live-html-status" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="preview" id="classic-option" style="margin-top:18px;">
+        <div class="hint" style="margin-bottom:12px;">
+          <strong>Live HTML — Classic</strong> — a more traditional layout: logo + gold rule, serif name &amp; role, a hairline divider, labelled contact lines and understated department links. Same live-text / single-image / VML-button approach as above.
+        </div>
+        <div class="bg-opt">
+          <div class="bg-opt-head">
+            <span class="name">Classic signature</span>
+            <button id="btn-copy-classic" class="secondary">Copy classic</button>
+          </div>
+          <div id="preview-classic" class="opt-preview"></div>
+        </div>
+        <div class="hint" id="classic-status" style="margin-top:8px;"></div>
       </div>
     </div>
   </div>
@@ -430,6 +444,7 @@ document.querySelectorAll(".dept-btn").forEach(btn => {
       updateLivePreview();
       updateBgOptionPreviews();
       updateLiveHtmlPreview();
+      updateClassicPreview();
       scheduleUpload();
     } catch (e) {
       els.fontStatus.textContent = "Failed to load background for " + currentDept;
@@ -1684,9 +1699,12 @@ function buildLiveHtml(logoUrl, logoW, logoH) {
   const aReset   = 'margin:0px; border:0px; outline:0px; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; mso-line-height-rule:exactly;';
   // Brand fonts named first (intent + the rare client that has them), web-safe
   // fallback for the 99% of email clients — incl. all of Outlook — that don't.
-  const nameFont = '"Zalando Sans Expanded", Arial, Helvetica, sans-serif';
-  const posFont  = '"Zalando Sans", Arial, Helvetica, sans-serif';
-  const monoFont = '"IBM Plex Mono", Consolas, "Liberation Mono", Menlo, monospace';
+  // Single quotes around multi-word font names: these get inlined into a
+  // style="..." attribute, so double quotes would prematurely close the
+  // attribute and drop every declaration after font-family (incl. font-size).
+  const nameFont = "'Zalando Sans Expanded', Arial, Helvetica, sans-serif";
+  const posFont  = "'Zalando Sans', Arial, Helvetica, sans-serif";
+  const monoFont = "'IBM Plex Mono', Consolas, 'Liberation Mono', Menlo, monospace";
   const iconA = (bg, fs, fw) =>
     `display:inline-block; width:28px; height:28px; box-sizing:border-box; background-color:${bg}; border-radius:6px; text-align:center; vertical-align:top; line-height:28px; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0px; ${aReset}`;
   const pillA = (bg) =>
@@ -1719,27 +1737,39 @@ function buildLiveHtml(logoUrl, logoW, logoH) {
   const telHref  = escapeAttr("tel:" + els.phone.value.replace(/[^\d+]/g, ""));
   const mailHref = escapeAttr("mailto:" + els.email.value.trim());
   const textTd = 'padding:0px; margin:0px; mso-line-height-rule:exactly;';
+  // Name a step larger + bold (700 = Arial's bold). Line-heights below feed the
+  // email-bottom math used to align the right-column social icons.
   const leftText =
       `<table cellpadding="0" cellspacing="0" border="0" style="${tblReset}">`
-    + `<tr><td style="${textTd} font-family:${nameFont}; font-size:20px; line-height:26px; font-weight:700; color:#000000;">${escapeHtml(els.name.value)}</td></tr>`
+    + `<tr><td style="${textTd} font-family:${nameFont}; font-size:24px; line-height:30px; font-weight:700; color:#000000;">${escapeHtml(els.name.value)}</td></tr>`
     + `<tr><td style="${textTd} font-family:${posFont}; font-size:14px; line-height:20px; font-weight:400; color:#000000;">${escapeHtml(els.position.value)}</td></tr>`
     + `<tr><td height="12" style="font-size:1px; line-height:12px; padding:0px;">&#8203;</td></tr>`
     + `<tr><td style="${textTd} font-family:${monoFont}; font-size:11px; line-height:17px; color:#000000;"><span style="font-weight:600;">Phone:&nbsp;</span><a href="${telHref}" style="color:#000000; text-decoration:none;">${escapeHtml(els.phone.value)}</a></td></tr>`
     + `<tr><td style="${textTd} font-family:${monoFont}; font-size:11px; line-height:17px; color:#000000;"><span style="font-weight:600;">Email:&nbsp;</span><a href="${mailHref}" style="color:#000000; text-decoration:none;">${escapeHtml(els.email.value)}</a></td></tr>`
     + `</table>`;
 
+  // Pills now live bottom-left, under the contact block, left-aligned.
+  const leftPills =
+      vSpacer(14)
+    + `<table cellpadding="0" cellspacing="0" border="0" align="left" style="${tblReset} margin-left:0px; margin-right:auto;"><tr>${pillsRow}</tr></table>`;
+
+  // Right column: logo pinned top-right; a spacer drops the social icons so
+  // their BOTTOM lines up with the Email line's bottom on the left. Email bottom
+  // ≈ 24+20+12+17+17 = 90px below the text top; with equal 18px top padding on
+  // both columns the icons (28px tall) land flush with it.
+  const EMAIL_BOTTOM = 30 + 20 + 12 + 17 + 17; // name lh + pos lh + gap + phone lh + email lh
+  const ICON_H = 28;
+  const gapLogoIcons = Math.max(0, EMAIL_BOTTOM - ICON_H - logoH);
   const rightInner =
       `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px;"><tr><td style="${tdReset}"><a href="${v.website}" target="_blank" style="display:inline-block; line-height:1px; font-size:1px; text-decoration:none; border:0px; outline:0px; margin:0px; padding:0px; vertical-align:top;">${logoImg}</a></td></tr></table>`
-    + vSpacer(14)
-    + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px;"><tr>${iconsRow}</tr></table>`
-    + vSpacer(10)
-    + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px;"><tr>${pillsRow}</tr></table>`;
+    + vSpacer(gapLogoIcons)
+    + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px;"><tr>${iconsRow}</tr></table>`;
 
   return `<!-- Aspiron Email Signature (Live HTML — contact lines are real text, logo is the only image) -->`
     + `<table cellpadding="0" cellspacing="0" border="0" width="${SIG_W}" style="${tblReset} width:100%; max-width:${SIG_W}px; font-family:Arial, Helvetica, sans-serif; color:#000000;">`
     + `<tr>`
-    + `<td width="${TL_LEFT_W}" valign="top" style="padding:18px 0px 0px 24px; margin:0px; border:0px; width:${TL_LEFT_W}px; vertical-align:top;">${leftText}</td>`
-    + `<td width="${TL_RIGHT_W}" valign="top" align="right" style="padding:16px 16px 0px 0px; margin:0px; border:0px; width:${TL_RIGHT_W}px; vertical-align:top; text-align:right;">${rightInner}</td>`
+    + `<td width="${TL_LEFT_W}" valign="top" style="padding:18px 0px 0px 24px; margin:0px; border:0px; width:${TL_LEFT_W}px; vertical-align:top;">${leftText}${leftPills}</td>`
+    + `<td width="${TL_RIGHT_W}" valign="top" align="right" style="padding:18px 16px 0px 0px; margin:0px; border:0px; width:${TL_RIGHT_W}px; vertical-align:top; text-align:right;">${rightInner}</td>`
     + `</tr>`
     + `</table>`;
 }
@@ -1788,11 +1818,146 @@ async function copyLiveHtml() {
 }
 document.getElementById("btn-copy-live").addEventListener("click", copyLiveHtml);
 
+// -- Classic live HTML option -------------------------------------------------
+// A more traditional corporate signature: logo on the left, a gold vertical
+// rule, then a serif name + role, a hairline divider, labelled contact lines,
+// a small social row and the three department links as understated text. Like
+// the live option above, every line is real text (survives image-blocking) and
+// the logo is the only image; social icons keep the VML/CSS dual-render so they
+// stay rounded in classic Outlook.
+function buildClassicHtml(logoUrl, logoW, logoH) {
+  const v = {
+    linkedin: escapeAttr(els.linkedin.value),
+    youtube: escapeAttr(els.youtube.value),
+    website: escapeAttr(els.website.value),
+    search: escapeAttr(els.search.value),
+    influence: escapeAttr(els.influence.value),
+    ventures: escapeAttr(els.ventures.value),
+    logo: escapeAttr(logoUrl),
+    iconBg: DEPT_COLORS[currentDept],
+  };
+  const ACCENT = "#b8873b";
+  // Plain Arial throughout — the Zalando brand fonts are never installed in
+  // email clients, so naming them first just adds noise.
+  const sans  = 'Arial, Helvetica, sans-serif';
+  const tblReset = 'border-collapse:collapse; border-spacing:0px; mso-table-lspace:0pt; mso-table-rspace:0pt; padding:0px; margin:0px;';
+  const tdReset  = 'padding:0px; margin:0px; border:0px; font-size:1px; line-height:1px; mso-line-height-rule:exactly;';
+  const aReset   = 'margin:0px; border:0px; outline:0px; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; mso-line-height-rule:exactly;';
+  const textTd   = 'padding:0px; margin:0px; mso-line-height-rule:exactly;';
+  const iconA = (bg, fs, fw) =>
+    `display:inline-block; width:24px; height:24px; box-sizing:border-box; background-color:${bg}; border-radius:5px; text-align:center; vertical-align:middle; line-height:24px; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0px; ${aReset}`;
+  const vmlBtn = (href, w, h, arc, fill, label, fs, fwCss, cssA) =>
+    `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:${h}px;v-text-anchor:middle;width:${w}px;" arcsize="${arc}%" stroke="f" fillcolor="${fill}"><w:anchorlock/><center style="color:#000000;font-family:Arial,Helvetica,sans-serif;font-size:${fs}px;font-weight:${fwCss};">${label}</center></v:roundrect><![endif]-->`
+    + `<!--[if !mso]><!--><a href="${href}" target="_blank" style="${cssA}">${label}</a><!--<![endif]-->`;
+  const sp = `<td width="6" style="${tdReset} width:6px; font-size:1px; line-height:1px;">&#8203;</td>`;
+  const cell = (inner) => `<td style="${tdReset} vertical-align:middle;">${inner}</td>`;
+
+  // Logo: cap display size; the keyed mark looks best around 120px wide.
+  const lscale = Math.min(120 / logoW, 92 / logoH, 1);
+  const lw = Math.max(1, Math.round(logoW * lscale));
+  const lh = Math.max(1, Math.round(logoH * lscale));
+  const logoImg = `<img src="${v.logo}" width="${lw}" height="${lh}" border="0" hspace="0" vspace="0" alt="Aspiron" style="display:block; border:0px; outline:0px; margin:0px; padding:0px; vertical-align:middle; width:${lw}px; height:${lh}px; max-width:${lw}px; -ms-interpolation-mode:bicubic;" />`;
+
+  const telHref  = escapeAttr("tel:" + els.phone.value.replace(/[^\d+]/g, ""));
+  const mailHref = escapeAttr("mailto:" + els.email.value.trim());
+  const webDisplay = escapeHtml(els.website.value.replace(/^https?:\/\//, "").replace(/\/$/, ""));
+  const cLine = (label, inner) =>
+    `<tr><td style="${textTd} font-family:${sans}; font-size:12px; line-height:20px; color:#333333;"><span style="font-weight:700; color:#555555;">${label}</span>&nbsp;${inner}</td></tr>`;
+
+  const pillA = (bg) =>
+    `display:inline-block; box-sizing:border-box; background-color:${bg}; color:#000000; font-family:Arial, Helvetica, sans-serif; font-size:9px; font-weight:600; font-style:normal; text-decoration:none; text-transform:none; padding:5px 12px; border-radius:9px; line-height:9px; letter-spacing:0.6px; vertical-align:middle; white-space:nowrap; ${aReset}`;
+
+  // Bottom row spans the text column: social buttons pinned LEFT, the three
+  // distinct-coloured department pills pinned RIGHT. cell() is
+  // vertical-align:middle so the 24px icons and 19px pills share a centre line.
+  const socialRow =
+        cell(vmlBtn(v.linkedin, 24, 24, 21, v.iconBg, "in",      12, "bold",   iconA(v.iconBg, 12, 700)))
+    + sp + cell(vmlBtn(v.youtube,  24, 24, 21, v.iconBg, "&#9654;", 11, "normal", iconA(v.iconBg, 11, 400)))
+    + sp + cell(vmlBtn(v.website,  24, 24, 21, v.iconBg, "&#8853;", 12, "normal", iconA(v.iconBg, 12, 400)));
+  const pillsRow =
+        cell(vmlBtn(v.search,    measurePillWidthLive("SEARCH"),    19, 47, "#D8923E", "SEARCH",    9, "bold", pillA("#D8923E")))
+    + sp + cell(vmlBtn(v.influence, measurePillWidthLive("INFLUENCE"), 19, 47, "#FFA57E", "INFLUENCE", 9, "bold", pillA("#FFA57E")))
+    + sp + cell(vmlBtn(v.ventures,  measurePillWidthLive("VENTURES"),  19, 47, "#EECAB0", "VENTURES",  9, "bold", pillA("#EECAB0")));
+
+  const hr = `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; ${tblReset}"><tr><td height="1" bgcolor="#e2e2e2" style="width:100%; height:1px; font-size:1px; line-height:1px; background-color:#e2e2e2;">&#8203;</td></tr></table>`;
+  const gap = (px) => `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; ${tblReset}"><tr><td height="${px}" style="height:${px}px; font-size:1px; line-height:${px}px;">&#8203;</td></tr></table>`;
+
+  const textCol =
+      `<table cellpadding="0" cellspacing="0" border="0" style="${tblReset}">`
+    + `<tr><td style="${textTd} font-family:${sans}; font-size:21px; line-height:26px; font-weight:700; color:#1a1a1a;">${escapeHtml(els.name.value)}</td></tr>`
+    + `<tr><td style="${textTd} font-family:${sans}; font-size:13px; line-height:18px; font-weight:400; color:#6b6b6b;">${escapeHtml(els.position.value)}</td></tr>`
+    + `</table>`
+    + gap(8) + hr + gap(8)
+    + `<table cellpadding="0" cellspacing="0" border="0" style="${tblReset}">`
+    + cLine("Phone", `<a href="${telHref}" style="color:#333333; text-decoration:none;">${escapeHtml(els.phone.value)}</a>`)
+    + cLine("Email", `<a href="${mailHref}" style="color:${ACCENT}; text-decoration:none;">${escapeHtml(els.email.value)}</a>`)
+    + cLine("Web", `<a href="${v.website}" target="_blank" style="color:${ACCENT}; text-decoration:none;">${webDisplay}</a>`)
+    + `</table>`
+    + gap(12)
+    + `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; ${tblReset}"><tr>`
+    + `<td valign="middle" align="left" style="${tdReset} vertical-align:middle; text-align:left;"><table cellpadding="0" cellspacing="0" border="0" align="left" style="${tblReset}"><tr>${socialRow}</tr></table></td>`
+    + `<td valign="middle" align="right" style="${tdReset} vertical-align:middle; text-align:right;"><table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px;"><tr>${pillsRow}</tr></table></td>`
+    + `</tr></table>`;
+
+  // Fixed widths (logo 124 + rule 2 + spacer 18 + text 400 = 544) so the pills
+  // have room to sit hard-right of the social buttons.
+  return `<!-- Aspiron Email Signature (Classic — logo, rule, serif name, real text) -->`
+    + `<table cellpadding="0" cellspacing="0" border="0" width="544" style="${tblReset} width:544px; max-width:100%; font-family:${sans}; color:#333333;">`
+    + `<tr>`
+    + `<td width="124" valign="middle" align="center" style="${tdReset} width:124px; padding:4px 16px 4px 4px; vertical-align:middle; text-align:center;">${logoImg}</td>`
+    + `<td width="2" bgcolor="${ACCENT}" style="width:2px; height:128px; background-color:${ACCENT}; font-size:1px; line-height:1px;">&#8203;</td>`
+    + `<td width="18" style="${tdReset} width:18px;">&#8203;</td>`
+    + `<td width="400" valign="top" style="${tdReset} width:400px; padding:2px 0px 2px 0px; vertical-align:top;">${textCol}</td>`
+    + `</tr>`
+    + `</table>`;
+}
+
+async function updateClassicPreview() {
+  if (!bgImage || !fontsReady) return;
+  const el = document.getElementById("preview-classic");
+  if (!el) return;
+  try {
+    const { canvas, w, h } = await getLogoCanvas(null);
+    el.innerHTML = buildClassicHtml(canvas.toDataURL("image/png"), w, h);
+  } catch (e) {
+    const s = document.getElementById("classic-status");
+    if (s) s.textContent = "Preview error: " + e.message;
+  }
+}
+
+async function copyClassic() {
+  const s = document.getElementById("classic-status");
+  s.textContent = "Baking logo…";
+  try {
+    await ensureFonts();
+    if (!bgImage) throw new Error("Background not loaded");
+    const { canvas, w, h } = await getLogoCanvas(null);
+    const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+    s.textContent = "Uploading logo…";
+    const logoUrl = await uploadBlob(blob, slugify(els.name.value) + "-classic-logo-" + currentDept);
+    const html = buildClassicHtml(logoUrl, w, h);
+    const text = `${els.name.value} — ${els.position.value}\n${els.phone.value}\n${els.email.value}`;
+    document.getElementById("preview-classic").innerHTML = html;
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([text], { type: "text/plain" }),
+      }),
+    ]);
+    s.textContent = "Copied — paste into Gmail or Outlook";
+    setTimeout(() => s.textContent = "", 4000);
+  } catch (e) {
+    s.textContent = "Classic copy failed: " + e.message;
+    setTimeout(() => s.textContent = "", 5000);
+  }
+}
+document.getElementById("btn-copy-classic").addEventListener("click", copyClassic);
+
 const textInputs = [els.name, els.position, els.phone, els.email];
 const linkInputs = [els.linkedin, els.youtube, els.website, els.search, els.influence, els.ventures];
 
-textInputs.forEach(i => i.addEventListener("input", () => { draw(); updateLivePreview(); updateBgOptionPreviews(); updateLiveHtmlPreview(); scheduleUpload(); }));
-linkInputs.forEach(i => i.addEventListener("input", () => { updateLivePreview(); updateBgOptionPreviews(); updateLiveHtmlPreview(); }));
+textInputs.forEach(i => i.addEventListener("input", () => { draw(); updateLivePreview(); updateBgOptionPreviews(); updateLiveHtmlPreview(); updateClassicPreview(); scheduleUpload(); }));
+linkInputs.forEach(i => i.addEventListener("input", () => { updateLivePreview(); updateBgOptionPreviews(); updateLiveHtmlPreview(); updateClassicPreview(); }));
 
 (async () => {
   document.querySelector('.dept-btn[data-dept="group"]').classList.add("active");
@@ -1807,7 +1972,8 @@ linkInputs.forEach(i => i.addEventListener("input", () => { updateLivePreview();
   updateLivePreview();
   updateBgOptionPreviews();
   updateLiveHtmlPreview();
-  setTimeout(() => { draw(); updateLivePreview(); updateBgOptionPreviews(); updateLiveHtmlPreview(); scheduleUpload(); }, 250);
+  updateClassicPreview();
+  setTimeout(() => { draw(); updateLivePreview(); updateBgOptionPreviews(); updateLiveHtmlPreview(); updateClassicPreview(); scheduleUpload(); }, 250);
 })();
 </script>
 </body>
