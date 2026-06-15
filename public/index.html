@@ -55,7 +55,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.24</span></h1>
+  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.25</span></h1>
   <p class="lead">Bakes custom fonts into a PNG so email clients can’t strip them. Fill the fields → download the PNG → host it → copy the HTML.</p>
 
   <div class="grid">
@@ -140,6 +140,20 @@
         </div>
 
         <div class="hint" id="bg-options-status" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="preview" id="live-html-option" style="margin-top:18px;">
+        <div class="hint" style="margin-bottom:12px;">
+          <strong>Live HTML</strong> — name, title, phone &amp; email are <em>real text</em>: selectable, and still readable if a client blocks images. The logo is the only image. Icons &amp; pills use VML so they stay rounded in classic Outlook. <em>The preview below shows the non-Outlook fallback (CSS buttons); paste into Outlook to see the VML buttons render.</em>
+        </div>
+        <div class="bg-opt">
+          <div class="bg-opt-head">
+            <span class="name">Live HTML signature</span>
+            <button id="btn-copy-live" class="secondary">Copy live HTML</button>
+          </div>
+          <div id="preview-live" class="opt-preview"></div>
+        </div>
+        <div class="hint" id="live-html-status" style="margin-top:8px;"></div>
       </div>
     </div>
   </div>
@@ -415,6 +429,7 @@ document.querySelectorAll(".dept-btn").forEach(btn => {
       draw();
       updateLivePreview();
       updateBgOptionPreviews();
+      updateLiveHtmlPreview();
       scheduleUpload();
     } catch (e) {
       els.fontStatus.textContent = "Failed to load background for " + currentDept;
@@ -1633,11 +1648,151 @@ async function copyForBgOption(opt) {
 document.getElementById("btn-copy-beige").addEventListener("click", () => copyForBgOption(BG_OPTIONS[0]));
 document.getElementById("btn-copy-none").addEventListener("click", () => copyForBgOption(BG_OPTIONS[1]));
 
+// -- Live HTML option ---------------------------------------------------------
+// The ONLY option where the contact lines are real, selectable HTML text instead
+// of a baked PNG — so if a client blocks external images, the name/title/phone/
+// email still render (just in a web-safe fallback font). The logo is the lone
+// image. Icons + pills are emitted twice: a VML <v:roundrect> for classic Outlook
+// (Word engine, which ignores border-radius and unreliably paints bg-color on
+// inline-block <a>), and a CSS <a> button behind an [if !mso] gate for everyone
+// else (Gmail, Apple Mail, New Outlook — all of which DO support rounded,
+// filled inline-block buttons and ignore the VML).
+const _measureCtx = document.createElement("canvas").getContext("2d");
+function measurePillWidthLive(text) {
+  // Match renderFullBaked's pill sizing so the VML button width wraps the text:
+  // Arial 9px 600 + 0.6px tracking + 12px padding each side.
+  _measureCtx.font = `600 ${PILL_FONT_SIZE}px Arial, Helvetica, sans-serif`;
+  try { _measureCtx.letterSpacing = "0.6px"; } catch (e) {}
+  const tracked = _measureCtx.measureText(text).width + Math.max(0, text.length - 1) * 0.6;
+  try { _measureCtx.letterSpacing = "0px"; } catch (e) {}
+  return Math.ceil(tracked + PILL_PAD_X * 2);
+}
+
+function buildLiveHtml(logoUrl, logoW, logoH) {
+  const v = {
+    linkedin: escapeAttr(els.linkedin.value),
+    youtube: escapeAttr(els.youtube.value),
+    website: escapeAttr(els.website.value),
+    search: escapeAttr(els.search.value),
+    influence: escapeAttr(els.influence.value),
+    ventures: escapeAttr(els.ventures.value),
+    logo: escapeAttr(logoUrl),
+    iconBg: DEPT_COLORS[currentDept],
+  };
+  const tblReset = 'border-collapse:collapse; border-spacing:0px; mso-table-lspace:0pt; mso-table-rspace:0pt; padding:0px; margin:0px;';
+  const tdReset  = 'padding:0px; margin:0px; border:0px; font-size:1px; line-height:1px; mso-line-height-rule:exactly;';
+  const aReset   = 'margin:0px; border:0px; outline:0px; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; mso-line-height-rule:exactly;';
+  // Brand fonts named first (intent + the rare client that has them), web-safe
+  // fallback for the 99% of email clients — incl. all of Outlook — that don't.
+  const nameFont = '"Zalando Sans Expanded", Arial, Helvetica, sans-serif';
+  const posFont  = '"Zalando Sans", Arial, Helvetica, sans-serif';
+  const monoFont = '"IBM Plex Mono", Consolas, "Liberation Mono", Menlo, monospace';
+  const iconA = (bg, fs, fw) =>
+    `display:inline-block; width:28px; height:28px; box-sizing:border-box; background-color:${bg}; border-radius:6px; text-align:center; vertical-align:top; line-height:28px; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0px; ${aReset}`;
+  const pillA = (bg) =>
+    `display:inline-block; box-sizing:border-box; background-color:${bg}; color:#000000; font-family:Arial, Helvetica, sans-serif; font-size:9px; font-weight:600; font-style:normal; text-decoration:none; text-transform:none; padding:5px 12px; border-radius:9px; line-height:9px; letter-spacing:0.6px; vertical-align:top; white-space:nowrap; ${aReset}`;
+
+  // VML roundrect (classic Outlook) + CSS <a> (everyone else). arcsize is the
+  // corner radius as a % of height: 6/28≈21% for the icon squares, 9/19≈47% for
+  // the fully-rounded pills.
+  const vmlBtn = (href, w, h, arc, fill, label, fs, fwCss, cssA) =>
+    `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:${h}px;v-text-anchor:middle;width:${w}px;" arcsize="${arc}%" stroke="f" fillcolor="${fill}"><w:anchorlock/><center style="color:#000000;font-family:Arial,Helvetica,sans-serif;font-size:${fs}px;font-weight:${fwCss};">${label}</center></v:roundrect><![endif]-->`
+    + `<!--[if !mso]><!--><a href="${href}" target="_blank" style="${cssA}">${label}</a><!--<![endif]-->`;
+
+  const sp = `<td width="4" style="${tdReset} width:4px; font-size:1px; line-height:1px;">&#8203;</td>`;
+  const cell = (inner) => `<td style="${tdReset} vertical-align:top;">${inner}</td>`;
+  const vSpacer = (px) =>
+    `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; ${tblReset}"><tr><td height="${px}" width="100%" style="width:100%; height:${px}px; padding:0px; margin:0px; border:0px; font-size:1px; line-height:${px}px; mso-line-height-rule:exactly;">&#8203;</td></tr></table>`;
+
+  const iconsRow =
+        cell(vmlBtn(v.linkedin, 28, 28, 21, v.iconBg, "in",        13, "bold",   iconA(v.iconBg, 13, 700)))
+    + sp + cell(vmlBtn(v.youtube,  28, 28, 21, v.iconBg, "&#9654;",   12, "normal", iconA(v.iconBg, 12, 400)))
+    + sp + cell(vmlBtn(v.website,  28, 28, 21, v.iconBg, "&#8853;",   13, "normal", iconA(v.iconBg, 13, 400)));
+
+  const pillsRow =
+        cell(vmlBtn(v.search,    measurePillWidthLive("SEARCH"),    19, 47, "#D8923E", "SEARCH",    9, "bold", pillA("#D8923E")))
+    + sp + cell(vmlBtn(v.influence, measurePillWidthLive("INFLUENCE"), 19, 47, "#FFA57E", "INFLUENCE", 9, "bold", pillA("#FFA57E")))
+    + sp + cell(vmlBtn(v.ventures,  measurePillWidthLive("VENTURES"),  19, 47, "#EECAB0", "VENTURES",  9, "bold", pillA("#EECAB0")));
+
+  const logoImg = `<img src="${v.logo}" width="${logoW}" height="${logoH}" border="0" hspace="0" vspace="0" alt="Aspiron" style="display:block; border:0px; outline:0px; margin:0px; padding:0px; vertical-align:top; width:${logoW}px; height:${logoH}px; max-width:${logoW}px; -ms-interpolation-mode:bicubic;" />`;
+
+  const telHref  = escapeAttr("tel:" + els.phone.value.replace(/[^\d+]/g, ""));
+  const mailHref = escapeAttr("mailto:" + els.email.value.trim());
+  const textTd = 'padding:0px; margin:0px; mso-line-height-rule:exactly;';
+  const leftText =
+      `<table cellpadding="0" cellspacing="0" border="0" style="${tblReset}">`
+    + `<tr><td style="${textTd} font-family:${nameFont}; font-size:20px; line-height:26px; font-weight:700; color:#000000;">${escapeHtml(els.name.value)}</td></tr>`
+    + `<tr><td style="${textTd} font-family:${posFont}; font-size:14px; line-height:20px; font-weight:400; color:#000000;">${escapeHtml(els.position.value)}</td></tr>`
+    + `<tr><td height="12" style="font-size:1px; line-height:12px; padding:0px;">&#8203;</td></tr>`
+    + `<tr><td style="${textTd} font-family:${monoFont}; font-size:11px; line-height:17px; color:#000000;"><span style="font-weight:600;">Phone:&nbsp;</span><a href="${telHref}" style="color:#000000; text-decoration:none;">${escapeHtml(els.phone.value)}</a></td></tr>`
+    + `<tr><td style="${textTd} font-family:${monoFont}; font-size:11px; line-height:17px; color:#000000;"><span style="font-weight:600;">Email:&nbsp;</span><a href="${mailHref}" style="color:#000000; text-decoration:none;">${escapeHtml(els.email.value)}</a></td></tr>`
+    + `</table>`;
+
+  const rightInner =
+      `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px;"><tr><td style="${tdReset}"><a href="${v.website}" target="_blank" style="display:inline-block; line-height:1px; font-size:1px; text-decoration:none; border:0px; outline:0px; margin:0px; padding:0px; vertical-align:top;">${logoImg}</a></td></tr></table>`
+    + vSpacer(14)
+    + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px;"><tr>${iconsRow}</tr></table>`
+    + vSpacer(10)
+    + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px;"><tr>${pillsRow}</tr></table>`;
+
+  return `<!-- Aspiron Email Signature (Live HTML — contact lines are real text, logo is the only image) -->`
+    + `<table cellpadding="0" cellspacing="0" border="0" width="${SIG_W}" style="${tblReset} width:100%; max-width:${SIG_W}px; font-family:Arial, Helvetica, sans-serif; color:#000000;">`
+    + `<tr>`
+    + `<td width="${TL_LEFT_W}" valign="top" style="padding:18px 0px 0px 24px; margin:0px; border:0px; width:${TL_LEFT_W}px; vertical-align:top;">${leftText}</td>`
+    + `<td width="${TL_RIGHT_W}" valign="top" align="right" style="padding:16px 16px 0px 0px; margin:0px; border:0px; width:${TL_RIGHT_W}px; vertical-align:top; text-align:right;">${rightInner}</td>`
+    + `</tr>`
+    + `</table>`;
+}
+
+async function updateLiveHtmlPreview() {
+  if (!bgImage || !fontsReady) return;
+  const el = document.getElementById("preview-live");
+  if (!el) return;
+  try {
+    const { canvas, w, h } = await getLogoCanvas(null);
+    el.innerHTML = buildLiveHtml(canvas.toDataURL("image/png"), w, h);
+  } catch (e) {
+    const s = document.getElementById("live-html-status");
+    if (s) s.textContent = "Preview error: " + e.message;
+  }
+}
+
+async function copyLiveHtml() {
+  const s = document.getElementById("live-html-status");
+  s.textContent = "Baking logo…";
+  try {
+    await ensureFonts();
+    if (!bgImage) throw new Error("Background not loaded");
+    const { canvas, w, h } = await getLogoCanvas(null);
+    const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+    s.textContent = "Uploading logo…";
+    const logoUrl = await uploadBlob(blob, slugify(els.name.value) + "-live-logo-" + currentDept);
+    const html = buildLiveHtml(logoUrl, w, h);
+    const text = `${els.name.value} — ${els.position.value}\n${els.phone.value}\n${els.email.value}`;
+    document.getElementById("preview-live").innerHTML = html;
+    // navigator.clipboard.write with a raw text/html Blob preserves the
+    // <!--[if mso]--> VML comments byte-for-byte (the selection/execCommand
+    // path strips them).
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([text], { type: "text/plain" }),
+      }),
+    ]);
+    s.textContent = "Copied — paste into Gmail or Outlook";
+    setTimeout(() => s.textContent = "", 4000);
+  } catch (e) {
+    s.textContent = "Live HTML copy failed: " + e.message;
+    setTimeout(() => s.textContent = "", 5000);
+  }
+}
+document.getElementById("btn-copy-live").addEventListener("click", copyLiveHtml);
+
 const textInputs = [els.name, els.position, els.phone, els.email];
 const linkInputs = [els.linkedin, els.youtube, els.website, els.search, els.influence, els.ventures];
 
-textInputs.forEach(i => i.addEventListener("input", () => { draw(); updateLivePreview(); updateBgOptionPreviews(); scheduleUpload(); }));
-linkInputs.forEach(i => i.addEventListener("input", () => { updateLivePreview(); updateBgOptionPreviews(); }));
+textInputs.forEach(i => i.addEventListener("input", () => { draw(); updateLivePreview(); updateBgOptionPreviews(); updateLiveHtmlPreview(); scheduleUpload(); }));
+linkInputs.forEach(i => i.addEventListener("input", () => { updateLivePreview(); updateBgOptionPreviews(); updateLiveHtmlPreview(); }));
 
 (async () => {
   document.querySelector('.dept-btn[data-dept="group"]').classList.add("active");
@@ -1651,7 +1806,8 @@ linkInputs.forEach(i => i.addEventListener("input", () => { updateLivePreview();
   draw();
   updateLivePreview();
   updateBgOptionPreviews();
-  setTimeout(() => { draw(); updateLivePreview(); updateBgOptionPreviews(); scheduleUpload(); }, 250);
+  updateLiveHtmlPreview();
+  setTimeout(() => { draw(); updateLivePreview(); updateBgOptionPreviews(); updateLiveHtmlPreview(); scheduleUpload(); }, 250);
 })();
 </script>
 </body>
