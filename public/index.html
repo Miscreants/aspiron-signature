@@ -55,7 +55,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.27</span></h1>
+  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.28</span></h1>
   <p class="lead">Bakes custom fonts into a PNG so email clients can’t strip them. Fill the fields → download the PNG → host it → copy the HTML.</p>
 
   <div class="grid">
@@ -323,10 +323,18 @@ function buildHtml(imgUrl) {
   const tdReset  = 'padding:0; margin:0; border:0; font-size:0; line-height:0; mso-line-height-rule:exactly;';
   const spacerTd = 'padding:0; margin:0; border:0; font-size:1px; line-height:1px; mso-line-height-rule:exactly;';
   const aReset   = 'margin:0; border:0; outline:0; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; mso-line-height-rule:exactly;';
+  // Bulletproof buttons: the box (size, bgcolor, radius) lives on the TD —
+  // Word-engine Outlook ignores padding/border-radius/inline-block on <a>,
+  // and sending clients strip the <!--[if mso]--> VML, so the TD is the only
+  // element every engine styles. The <a> carries typography only.
+  const iconTd = (bg) =>
+    `width:28px; height:28px; background-color:${bg}; border-radius:6px; text-align:center; vertical-align:middle; padding:0; margin:0; border:0; mso-line-height-rule:exactly; white-space:nowrap;`;
+  const pillTd = (bg, w) =>
+    `width:${w}px; height:19px; background-color:${bg}; border-radius:9px; text-align:center; vertical-align:middle; padding:0; margin:0; border:0; mso-line-height-rule:exactly; white-space:nowrap;`;
   const iconA = (bg, fs, fw, mr) =>
-    `display:inline-block; width:28px; height:28px; box-sizing:border-box; background-color:${bg}; border-radius:6px; text-align:center; vertical-align:top; line-height:28px; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0; word-break:keep-all; word-wrap:normal; ${aReset} margin-right:${mr}px;`;
+    `display:block; line-height:28px; text-align:center; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0; word-break:keep-all; word-wrap:normal; ${aReset} margin-right:${mr}px;`;
   const pillA = (bg, mr) =>
-    `display:inline-block; box-sizing:border-box; background-color:${bg}; color:#000000; font-family:Arial, Helvetica, sans-serif; font-size:9px; font-weight:600; font-style:normal; text-decoration:none; text-transform:none; padding:5px 12px; border-radius:9px; line-height:1; letter-spacing:0.6px; vertical-align:top; white-space:nowrap; word-break:keep-all; word-wrap:normal; ${aReset} margin-right:${mr}px;`;
+    `display:block; color:#000000; font-family:Arial, Helvetica, sans-serif; font-size:9px; font-weight:600; font-style:normal; text-decoration:none; text-transform:none; line-height:19px; letter-spacing:0.6px; white-space:nowrap; word-break:keep-all; word-wrap:normal; ${aReset} margin-right:${mr}px;`;
 
   return `<!-- Aspiron Email Signature -->
 <table cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px; ${tblReset} font-family:Arial, Helvetica, sans-serif; font-size:0; line-height:0; color:#000000;">
@@ -349,7 +357,11 @@ function buildHtml(imgUrl) {
 
             <table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0; font-size:0; line-height:0;">
               <tr>
-                <td nowrap style="padding:0; ${tdReset} white-space:nowrap;"><a href="${v.linkedin}" target="_blank" style="${iconA(v.iconBg, 13, 700, 6)}">in</a><a href="${v.youtube}" target="_blank" style="${iconA(v.iconBg, 12, 400, 6)}">&#9654;</a><a href="${v.website}" target="_blank" style="${iconA(v.iconBg, 13, 400, 0)}">&#8853;</a></td>
+                <td width="28" height="28" bgcolor="${v.iconBg}" align="center" valign="middle" nowrap style="${iconTd(v.iconBg)}"><a href="${v.linkedin}" target="_blank" style="${iconA(v.iconBg, 13, 700, 0)}">in</a></td>
+                <td width="6" style="${spacerTd} width:6px;">&#8203;</td>
+                <td width="28" height="28" bgcolor="${v.iconBg}" align="center" valign="middle" nowrap style="${iconTd(v.iconBg)}"><a href="${v.youtube}" target="_blank" style="${iconA(v.iconBg, 12, 400, 0)}">&#9654;</a></td>
+                <td width="6" style="${spacerTd} width:6px;">&#8203;</td>
+                <td width="28" height="28" bgcolor="${v.iconBg}" align="center" valign="middle" nowrap style="${iconTd(v.iconBg)}"><a href="${v.website}" target="_blank" style="${iconA(v.iconBg, 13, 400, 0)}">&#8853;</a></td>
               </tr>
             </table>
 
@@ -359,7 +371,11 @@ function buildHtml(imgUrl) {
 
             <table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0; font-size:0; line-height:0;">
               <tr>
-                <td nowrap style="padding:0; ${tdReset} white-space:nowrap;"><a href="${v.search}" target="_blank" style="${pillA('#D8923E', 4)}">SEARCH</a><a href="${v.influence}" target="_blank" style="${pillA('#FFA57E', 4)}">INFLUENCE</a><a href="${v.ventures}" target="_blank" style="${pillA('#EECAB0', 0)}">VENTURES</a></td>
+                <td width="${measurePillWidthLive("SEARCH")}" height="19" bgcolor="#D8923E" align="center" valign="middle" nowrap style="${pillTd('#D8923E', measurePillWidthLive("SEARCH"))}"><a href="${v.search}" target="_blank" style="${pillA('#D8923E', 0)}">SEARCH</a></td>
+                <td width="4" style="${spacerTd} width:4px;">&#8203;</td>
+                <td width="${measurePillWidthLive("INFLUENCE")}" height="19" bgcolor="#FFA57E" align="center" valign="middle" nowrap style="${pillTd('#FFA57E', measurePillWidthLive("INFLUENCE"))}"><a href="${v.influence}" target="_blank" style="${pillA('#FFA57E', 0)}">INFLUENCE</a></td>
+                <td width="4" style="${spacerTd} width:4px;">&#8203;</td>
+                <td width="${measurePillWidthLive("VENTURES")}" height="19" bgcolor="#EECAB0" align="center" valign="middle" nowrap style="${pillTd('#EECAB0', measurePillWidthLive("VENTURES"))}"><a href="${v.ventures}" target="_blank" style="${pillA('#EECAB0', 0)}">VENTURES</a></td>
               </tr>
             </table>
 
@@ -952,9 +968,9 @@ function buildV2Html(leftImgUrl, logoImgUrl, rightBgUrl) {
   const tdReset  = 'padding:0px; margin:0px; border:0px; font-size:1px; line-height:1px; mso-line-height-rule:exactly;';
   const aReset   = 'margin:0px; border:0px; outline:0px; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; mso-line-height-rule:exactly;';
   const iconA = (bg, fs, fw, mr) =>
-    `display:inline-block; width:28px; height:28px; box-sizing:border-box; background-color:${bg}; border-radius:6px; text-align:center; vertical-align:top; line-height:28px; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0px; word-break:keep-all; word-wrap:normal; ${aReset} margin-right:${mr}px;`;
+    `display:block; line-height:28px; text-align:center; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0px; word-break:keep-all; word-wrap:normal; ${aReset} margin-right:${mr}px;`;
   const pillA = (bg, mr) =>
-    `display:inline-block; box-sizing:border-box; background-color:${bg}; color:#000000; font-family:Arial, Helvetica, sans-serif; font-size:9px; font-weight:600; font-style:normal; text-decoration:none; text-transform:none; padding:5px 12px; border-radius:9px; line-height:9px; letter-spacing:0.6px; vertical-align:top; white-space:nowrap; word-break:keep-all; word-wrap:normal; ${aReset} margin-right:${mr}px;`;
+    `display:block; color:#000000; font-family:Arial, Helvetica, sans-serif; font-size:9px; font-weight:600; font-style:normal; text-decoration:none; text-transform:none; line-height:19px; letter-spacing:0.6px; white-space:nowrap; word-break:keep-all; word-wrap:normal; ${aReset} margin-right:${mr}px;`;
 
   // bgcolor on every text-bearing cell — when WebKit opens a sub-pixel seam at
   // the left/right TD boundary, the gap fills with V2_BG_COLOR and becomes
@@ -1003,11 +1019,11 @@ function buildV2Html(leftImgUrl, logoImgUrl, rightBgUrl) {
     // icons/pills keep their own vivid fills (which dark mode preserves).
     + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px; font-size:1px; line-height:1px;">`
     + `<tr>`
-    + `<td width="28" nowrap style="${tdReset} width:28px; white-space:nowrap; vertical-align:top;"><a href="${v.linkedin}" target="_blank" style="${iconA(v.iconBg, 13, 700, 0)}">in</a></td>`
+    + `<td width="28" height="28" bgcolor="${v.iconBg}" align="center" valign="middle" nowrap style="width:28px; height:28px; background-color:${v.iconBg}; border-radius:6px; text-align:center; vertical-align:middle; padding:0px; margin:0px; border:0px; mso-line-height-rule:exactly; white-space:nowrap;"><a href="${v.linkedin}" target="_blank" style="${iconA(v.iconBg, 13, 700, 0)}">in</a></td>`
     + `<td width="4" style="${tdReset} width:4px; font-size:1px; line-height:1px;">&#8203;</td>`
-    + `<td width="28" nowrap style="${tdReset} width:28px; white-space:nowrap; vertical-align:top;"><a href="${v.youtube}" target="_blank" style="${iconA(v.iconBg, 12, 400, 0)}">&#9654;</a></td>`
+    + `<td width="28" height="28" bgcolor="${v.iconBg}" align="center" valign="middle" nowrap style="width:28px; height:28px; background-color:${v.iconBg}; border-radius:6px; text-align:center; vertical-align:middle; padding:0px; margin:0px; border:0px; mso-line-height-rule:exactly; white-space:nowrap;"><a href="${v.youtube}" target="_blank" style="${iconA(v.iconBg, 12, 400, 0)}">&#9654;</a></td>`
     + `<td width="4" style="${tdReset} width:4px; font-size:1px; line-height:1px;">&#8203;</td>`
-    + `<td width="28" nowrap style="${tdReset} width:28px; white-space:nowrap; vertical-align:top;"><a href="${v.website}" target="_blank" style="${iconA(v.iconBg, 13, 400, 0)}">&#8853;</a></td>`
+    + `<td width="28" height="28" bgcolor="${v.iconBg}" align="center" valign="middle" nowrap style="width:28px; height:28px; background-color:${v.iconBg}; border-radius:6px; text-align:center; vertical-align:middle; padding:0px; margin:0px; border:0px; mso-line-height-rule:exactly; white-space:nowrap;"><a href="${v.website}" target="_blank" style="${iconA(v.iconBg, 13, 400, 0)}">&#8853;</a></td>`
     + `</tr>`
     + `</table>`
     + `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; ${tblReset}">`
@@ -1015,11 +1031,11 @@ function buildV2Html(leftImgUrl, logoImgUrl, rightBgUrl) {
     + `</table>`
     + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px; font-size:1px; line-height:1px;">`
     + `<tr>`
-    + `<td width="${measurePillWidthLive("SEARCH")}" nowrap style="${tdReset} width:${measurePillWidthLive("SEARCH")}px; white-space:nowrap; vertical-align:top;"><a href="${v.search}" target="_blank" style="${pillA('#D8923E', 0)}">SEARCH</a></td>`
+    + `<td width="${measurePillWidthLive("SEARCH")}" height="19" bgcolor="#D8923E" align="center" valign="middle" nowrap style="width:${measurePillWidthLive("SEARCH")}px; height:19px; background-color:#D8923E; border-radius:9px; text-align:center; vertical-align:middle; padding:0px; margin:0px; border:0px; mso-line-height-rule:exactly; white-space:nowrap;"><a href="${v.search}" target="_blank" style="${pillA('#D8923E', 0)}">SEARCH</a></td>`
     + `<td width="4" style="${tdReset} width:4px; font-size:1px; line-height:1px;">&#8203;</td>`
-    + `<td width="${measurePillWidthLive("INFLUENCE")}" nowrap style="${tdReset} width:${measurePillWidthLive("INFLUENCE")}px; white-space:nowrap; vertical-align:top;"><a href="${v.influence}" target="_blank" style="${pillA('#FFA57E', 0)}">INFLUENCE</a></td>`
+    + `<td width="${measurePillWidthLive("INFLUENCE")}" height="19" bgcolor="#FFA57E" align="center" valign="middle" nowrap style="width:${measurePillWidthLive("INFLUENCE")}px; height:19px; background-color:#FFA57E; border-radius:9px; text-align:center; vertical-align:middle; padding:0px; margin:0px; border:0px; mso-line-height-rule:exactly; white-space:nowrap;"><a href="${v.influence}" target="_blank" style="${pillA('#FFA57E', 0)}">INFLUENCE</a></td>`
     + `<td width="4" style="${tdReset} width:4px; font-size:1px; line-height:1px;">&#8203;</td>`
-    + `<td width="${measurePillWidthLive("VENTURES")}" nowrap style="${tdReset} width:${measurePillWidthLive("VENTURES")}px; white-space:nowrap; vertical-align:top;"><a href="${v.ventures}" target="_blank" style="${pillA('#EECAB0', 0)}">VENTURES</a></td>`
+    + `<td width="${measurePillWidthLive("VENTURES")}" height="19" bgcolor="#EECAB0" align="center" valign="middle" nowrap style="width:${measurePillWidthLive("VENTURES")}px; height:19px; background-color:#EECAB0; border-radius:9px; text-align:center; vertical-align:middle; padding:0px; margin:0px; border:0px; mso-line-height-rule:exactly; white-space:nowrap;"><a href="${v.ventures}" target="_blank" style="${pillA('#EECAB0', 0)}">VENTURES</a></td>`
     + `</tr>`
     + `</table>`
     + `</div>`
@@ -1391,9 +1407,9 @@ function buildBgHtml(textImgUrl, logoImgUrl, logoW, logoH, bgColor, bgTileUrl) {
   const tdReset  = 'padding:0px; margin:0px; border:0px; font-size:1px; line-height:1px; mso-line-height-rule:exactly;';
   const aReset   = 'margin:0px; border:0px; outline:0px; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; mso-line-height-rule:exactly;';
   const iconA = (bg, fs, fw, mr) =>
-    `display:inline-block; width:28px; height:28px; box-sizing:border-box; background-color:${bg}; border-radius:6px; text-align:center; vertical-align:top; line-height:28px; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0px; word-break:keep-all; word-wrap:normal; ${aReset} margin-right:${mr}px;`;
+    `display:block; line-height:28px; text-align:center; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0px; word-break:keep-all; word-wrap:normal; ${aReset} margin-right:${mr}px;`;
   const pillA = (bg, mr) =>
-    `display:inline-block; box-sizing:border-box; background-color:${bg}; color:#000000; font-family:Arial, Helvetica, sans-serif; font-size:9px; font-weight:600; font-style:normal; text-decoration:none; text-transform:none; padding:5px 12px; border-radius:9px; line-height:9px; letter-spacing:0.6px; vertical-align:top; white-space:nowrap; word-break:keep-all; word-wrap:normal; ${aReset} margin-right:${mr}px;`;
+    `display:block; color:#000000; font-family:Arial, Helvetica, sans-serif; font-size:9px; font-weight:600; font-style:normal; text-decoration:none; text-transform:none; line-height:19px; letter-spacing:0.6px; white-space:nowrap; word-break:keep-all; word-wrap:normal; ${aReset} margin-right:${mr}px;`;
 
   // Vertical placement inside the 150px right column. The logo pins to the top
   // (TOP_PAD); a spacer then drops the icons to ICON_Y and the pills to PILL_Y so
@@ -1433,22 +1449,22 @@ function buildBgHtml(textImgUrl, logoImgUrl, logoW, logoH, bgColor, bgTileUrl) {
     // adjacent rounded icons never leak their fill into the gap.
     + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px; font-size:1px; line-height:1px;">`
     + `<tr>`
-    + `<td width="28" nowrap style="${tdReset} width:28px; white-space:nowrap; vertical-align:top;"><a href="${v.linkedin}" target="_blank" style="${iconA(v.iconBg, 13, 700, 0)}">in</a></td>`
+    + `<td width="28" height="28" bgcolor="${v.iconBg}" align="center" valign="middle" nowrap style="width:28px; height:28px; background-color:${v.iconBg}; border-radius:6px; text-align:center; vertical-align:middle; padding:0px; margin:0px; border:0px; mso-line-height-rule:exactly; white-space:nowrap;"><a href="${v.linkedin}" target="_blank" style="${iconA(v.iconBg, 13, 700, 0)}">in</a></td>`
     + `<td width="4" style="${tdReset} width:4px; font-size:1px; line-height:1px;">&#8203;</td>`
-    + `<td width="28" nowrap style="${tdReset} width:28px; white-space:nowrap; vertical-align:top;"><a href="${v.youtube}" target="_blank" style="${iconA(v.iconBg, 12, 400, 0)}">&#9654;</a></td>`
+    + `<td width="28" height="28" bgcolor="${v.iconBg}" align="center" valign="middle" nowrap style="width:28px; height:28px; background-color:${v.iconBg}; border-radius:6px; text-align:center; vertical-align:middle; padding:0px; margin:0px; border:0px; mso-line-height-rule:exactly; white-space:nowrap;"><a href="${v.youtube}" target="_blank" style="${iconA(v.iconBg, 12, 400, 0)}">&#9654;</a></td>`
     + `<td width="4" style="${tdReset} width:4px; font-size:1px; line-height:1px;">&#8203;</td>`
-    + `<td width="28" nowrap style="${tdReset} width:28px; white-space:nowrap; vertical-align:top;"><a href="${v.website}" target="_blank" style="${iconA(v.iconBg, 13, 400, 0)}">&#8853;</a></td>`
+    + `<td width="28" height="28" bgcolor="${v.iconBg}" align="center" valign="middle" nowrap style="width:28px; height:28px; background-color:${v.iconBg}; border-radius:6px; text-align:center; vertical-align:middle; padding:0px; margin:0px; border:0px; mso-line-height-rule:exactly; white-space:nowrap;"><a href="${v.website}" target="_blank" style="${iconA(v.iconBg, 13, 400, 0)}">&#8853;</a></td>`
     + `</tr>`
     + `</table>`
     // Spacer: icons -> pills (so pills land on PILL_Y / the Email line).
     + vSpacer(gapIconsPills)
     + `<table cellpadding="0" cellspacing="0" border="0" align="right" style="${tblReset} margin-left:auto; margin-right:0px; font-size:1px; line-height:1px;">`
     + `<tr>`
-    + `<td width="${measurePillWidthLive("SEARCH")}" nowrap style="${tdReset} width:${measurePillWidthLive("SEARCH")}px; white-space:nowrap; vertical-align:top;"><a href="${v.search}" target="_blank" style="${pillA('#D8923E', 0)}">SEARCH</a></td>`
+    + `<td width="${measurePillWidthLive("SEARCH")}" height="19" bgcolor="#D8923E" align="center" valign="middle" nowrap style="width:${measurePillWidthLive("SEARCH")}px; height:19px; background-color:#D8923E; border-radius:9px; text-align:center; vertical-align:middle; padding:0px; margin:0px; border:0px; mso-line-height-rule:exactly; white-space:nowrap;"><a href="${v.search}" target="_blank" style="${pillA('#D8923E', 0)}">SEARCH</a></td>`
     + `<td width="4" style="${tdReset} width:4px; font-size:1px; line-height:1px;">&#8203;</td>`
-    + `<td width="${measurePillWidthLive("INFLUENCE")}" nowrap style="${tdReset} width:${measurePillWidthLive("INFLUENCE")}px; white-space:nowrap; vertical-align:top;"><a href="${v.influence}" target="_blank" style="${pillA('#FFA57E', 0)}">INFLUENCE</a></td>`
+    + `<td width="${measurePillWidthLive("INFLUENCE")}" height="19" bgcolor="#FFA57E" align="center" valign="middle" nowrap style="width:${measurePillWidthLive("INFLUENCE")}px; height:19px; background-color:#FFA57E; border-radius:9px; text-align:center; vertical-align:middle; padding:0px; margin:0px; border:0px; mso-line-height-rule:exactly; white-space:nowrap;"><a href="${v.influence}" target="_blank" style="${pillA('#FFA57E', 0)}">INFLUENCE</a></td>`
     + `<td width="4" style="${tdReset} width:4px; font-size:1px; line-height:1px;">&#8203;</td>`
-    + `<td width="${measurePillWidthLive("VENTURES")}" nowrap style="${tdReset} width:${measurePillWidthLive("VENTURES")}px; white-space:nowrap; vertical-align:top;"><a href="${v.ventures}" target="_blank" style="${pillA('#EECAB0', 0)}">VENTURES</a></td>`
+    + `<td width="${measurePillWidthLive("VENTURES")}" height="19" bgcolor="#EECAB0" align="center" valign="middle" nowrap style="width:${measurePillWidthLive("VENTURES")}px; height:19px; background-color:#EECAB0; border-radius:9px; text-align:center; vertical-align:middle; padding:0px; margin:0px; border:0px; mso-line-height-rule:exactly; white-space:nowrap;"><a href="${v.ventures}" target="_blank" style="${pillA('#EECAB0', 0)}">VENTURES</a></td>`
     + `</tr>`
     + `</table>`
     + `</div>`
@@ -1705,17 +1721,19 @@ function buildLiveHtml(logoUrl, logoW, logoH) {
   const nameFont = "'Zalando Sans Expanded', Arial, Helvetica, sans-serif";
   const posFont  = "'Zalando Sans', Arial, Helvetica, sans-serif";
   const monoFont = "'IBM Plex Mono', Consolas, 'Liberation Mono', Menlo, monospace";
+  // Typography only — the surrounding vmlBtn TD carries size/bg/radius, so the
+  // buttons survive both the Word engine and comment-stripping composers.
   const iconA = (bg, fs, fw) =>
-    `display:inline-block; width:28px; height:28px; box-sizing:border-box; background-color:${bg}; border-radius:6px; text-align:center; vertical-align:top; line-height:28px; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0px; word-break:keep-all; word-wrap:normal; ${aReset}`;
+    `display:block; line-height:28px; text-align:center; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0px; word-break:keep-all; word-wrap:normal; ${aReset}`;
   const pillA = (bg) =>
-    `display:inline-block; box-sizing:border-box; background-color:${bg}; color:#000000; font-family:Arial, Helvetica, sans-serif; font-size:9px; font-weight:600; font-style:normal; text-decoration:none; text-transform:none; padding:5px 12px; border-radius:9px; line-height:9px; letter-spacing:0.6px; vertical-align:top; white-space:nowrap; word-break:keep-all; word-wrap:normal; ${aReset}`;
+    `display:block; color:#000000; font-family:Arial, Helvetica, sans-serif; font-size:9px; font-weight:600; font-style:normal; text-decoration:none; text-transform:none; line-height:19px; letter-spacing:0.6px; white-space:nowrap; word-break:keep-all; word-wrap:normal; ${aReset}`;
 
   // VML roundrect (classic Outlook) + CSS <a> (everyone else). arcsize is the
   // corner radius as a % of height: 6/28≈21% for the icon squares, 9/19≈47% for
   // the fully-rounded pills.
   const vmlBtn = (href, w, h, arc, fill, label, fs, fwCss, cssA) =>
     `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:${h}px;v-text-anchor:middle;width:${w}px;" arcsize="${arc}%" stroke="f" fillcolor="${fill}"><w:anchorlock/><center style="color:#000000;font-family:Arial,Helvetica,sans-serif;font-size:${fs}px;font-weight:${fwCss};">${label}</center></v:roundrect><![endif]-->`
-    + `<!--[if !mso]><!--><a href="${href}" target="_blank" style="${cssA}">${label}</a><!--<![endif]-->`;
+    + `<!--[if !mso]><!--><table cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate; border-spacing:0px;"><tr><td width="${w}" height="${h}" bgcolor="${fill}" align="center" valign="middle" nowrap style="width:${w}px; height:${h}px; background-color:${fill}; border-radius:${Math.round(h * arc / 100)}px; text-align:center; vertical-align:middle; padding:0px; margin:0px; border:0px; mso-line-height-rule:exactly; white-space:nowrap;"><a href="${href}" target="_blank" style="${cssA}">${label}</a></td></tr></table><!--<![endif]-->`;
 
   const sp = `<td width="4" style="${tdReset} width:4px; font-size:1px; line-height:1px;">&#8203;</td>`;
   // Optional fixed width + legacy nowrap attr: Outlook mobile strips
@@ -1850,10 +1868,10 @@ function buildClassicHtml(logoUrl, logoW, logoH) {
   const aReset   = 'margin:0px; border:0px; outline:0px; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; mso-line-height-rule:exactly;';
   const textTd   = 'padding:0px; margin:0px; mso-line-height-rule:exactly;';
   const iconA = (bg, fs, fw) =>
-    `display:inline-block; width:24px; height:24px; box-sizing:border-box; background-color:${bg}; border-radius:5px; text-align:center; vertical-align:middle; line-height:24px; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0px; word-break:keep-all; word-wrap:normal; ${aReset}`;
+    `display:block; line-height:24px; text-align:center; text-decoration:none; font-family:Arial, Helvetica, sans-serif; font-size:${fs}px; font-weight:${fw}; font-style:normal; color:#000000; letter-spacing:0px; word-break:keep-all; word-wrap:normal; ${aReset}`;
   const vmlBtn = (href, w, h, arc, fill, label, fs, fwCss, cssA) =>
     `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:${h}px;v-text-anchor:middle;width:${w}px;" arcsize="${arc}%" stroke="f" fillcolor="${fill}"><w:anchorlock/><center style="color:#000000;font-family:Arial,Helvetica,sans-serif;font-size:${fs}px;font-weight:${fwCss};">${label}</center></v:roundrect><![endif]-->`
-    + `<!--[if !mso]><!--><a href="${href}" target="_blank" style="${cssA}">${label}</a><!--<![endif]-->`;
+    + `<!--[if !mso]><!--><table cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate; border-spacing:0px;"><tr><td width="${w}" height="${h}" bgcolor="${fill}" align="center" valign="middle" nowrap style="width:${w}px; height:${h}px; background-color:${fill}; border-radius:${Math.round(h * arc / 100)}px; text-align:center; vertical-align:middle; padding:0px; margin:0px; border:0px; mso-line-height-rule:exactly; white-space:nowrap;"><a href="${href}" target="_blank" style="${cssA}">${label}</a></td></tr></table><!--<![endif]-->`;
   const sp = `<td width="6" style="${tdReset} width:6px; font-size:1px; line-height:1px;">&#8203;</td>`;
   // Same Outlook-mobile guard as buildLiveHtml's cell(): width attr + nowrap.
   const cell = (inner, w) => w
@@ -1873,7 +1891,7 @@ function buildClassicHtml(logoUrl, logoW, logoH) {
     `<tr><td style="${textTd} font-family:${sans}; font-size:12px; line-height:20px; color:#333333;"><span style="font-weight:700; color:#555555;">${label}</span>&nbsp;${inner}</td></tr>`;
 
   const pillA = (bg) =>
-    `display:inline-block; box-sizing:border-box; background-color:${bg}; color:#000000; font-family:Arial, Helvetica, sans-serif; font-size:9px; font-weight:600; font-style:normal; text-decoration:none; text-transform:none; padding:5px 12px; border-radius:9px; line-height:9px; letter-spacing:0.6px; vertical-align:middle; white-space:nowrap; word-break:keep-all; word-wrap:normal; ${aReset}`;
+    `display:block; color:#000000; font-family:Arial, Helvetica, sans-serif; font-size:9px; font-weight:600; font-style:normal; text-decoration:none; text-transform:none; line-height:19px; letter-spacing:0.6px; white-space:nowrap; word-break:keep-all; word-wrap:normal; ${aReset}`;
 
   // Bottom row spans the text column: social buttons pinned LEFT, the three
   // distinct-coloured department pills pinned RIGHT. cell() is
