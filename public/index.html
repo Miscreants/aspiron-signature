@@ -55,7 +55,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.30</span></h1>
+  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.31</span></h1>
   <p class="lead">Bakes custom fonts into a PNG so email clients can’t strip them. Fill the fields → download the PNG → host it → copy the HTML.</p>
 
   <div class="grid">
@@ -104,7 +104,10 @@
     </div>
 
     <div>
-      <div class="preview">
+      <!-- Hidden for now: only the Live HTML option is offered on the homepage.
+           The blocks (and all their JS) are kept intact — remove display:none
+           to bring them back. -->
+      <div class="preview" style="display:none;">
         <div class="hint" style="margin-bottom:6px;">Signature preview</div>
         <div id="live-preview" style="border:1px solid var(--line); border-radius:4px; overflow:auto; background:#fff;"></div>
         <canvas id="cv" width="1200" height="300" style="position:absolute; left:-9999px; top:-9999px; width:600px; height:150px;"></canvas>
@@ -120,7 +123,7 @@
         <div class="hint" id="font-status" style="display:none;"></div>
       </div>
 
-      <div class="preview" id="bg-options" style="margin-top:18px;">
+      <div class="preview" id="bg-options" style="margin-top:18px; display:none;">
         <div class="hint" style="margin-bottom:12px;">Background style — no background image. Compare and copy the one that works best.</div>
 
         <div class="bg-opt">
@@ -156,7 +159,7 @@
         <div class="hint" id="live-html-status" style="margin-top:8px;"></div>
       </div>
 
-      <div class="preview" id="classic-option" style="margin-top:18px;">
+      <div class="preview" id="classic-option" style="margin-top:18px; display:none;">
         <div class="hint" style="margin-bottom:12px;">
           <strong>Live HTML — Classic</strong> — a more traditional layout: logo + gold rule, serif name &amp; role, a hairline divider, labelled contact lines and understated department links. Same live-text / single-image / VML-button approach as above.
         </div>
