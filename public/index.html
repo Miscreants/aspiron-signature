@@ -55,7 +55,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.31</span></h1>
+  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.32</span></h1>
   <p class="lead">Bakes custom fonts into a PNG so email clients can’t strip them. Fill the fields → download the PNG → host it → copy the HTML.</p>
 
   <div class="grid">
@@ -70,6 +70,8 @@
         <input type="tel" id="f-phone" value="+1 555 123 4567" />
         <label>Email</label>
         <input type="email" id="f-email" value="jane@aspironsearch.com" />
+        <label>Calendly URL</label>
+        <input type="url" id="f-calendly" value="https://calendly.com/jane-doe" />
       </fieldset>
 
       <fieldset>
@@ -203,6 +205,7 @@ const els = {
   position: document.getElementById("f-position"),
   phone: document.getElementById("f-phone"),
   email: document.getElementById("f-email"),
+  calendly: document.getElementById("f-calendly"),
   linkedin: document.getElementById("f-linkedin"),
   youtube: document.getElementById("f-youtube"),
   website: document.getElementById("f-website"),
@@ -1768,6 +1771,8 @@ function buildLiveHtml(logoUrl, logoW, logoH) {
 
   const telHref  = escapeAttr("tel:" + els.phone.value.replace(/[^\d+]/g, ""));
   const mailHref = escapeAttr("mailto:" + els.email.value.trim());
+  const calUrl   = els.calendly.value.trim();
+  const calHref  = escapeAttr(calUrl);
   const textTd = 'padding:0px; margin:0px; mso-line-height-rule:exactly;';
   // Name a step larger + bold (700 = Arial's bold). Line-heights below feed the
   // email-bottom math used to align the right-column social icons.
@@ -1778,6 +1783,7 @@ function buildLiveHtml(logoUrl, logoW, logoH) {
     + `<tr><td height="12" style="font-size:1px; line-height:12px; padding:0px;">&#8203;</td></tr>`
     + `<tr><td style="${textTd} font-family:${monoFont}; font-size:11px; line-height:17px; color:#000000;"><span style="font-weight:600;">Phone:&nbsp;</span><a href="${telHref}" style="color:#000000; text-decoration:none;">${escapeHtml(els.phone.value)}</a></td></tr>`
     + `<tr><td style="${textTd} font-family:${monoFont}; font-size:11px; line-height:17px; color:#000000;"><span style="font-weight:600;">Email:&nbsp;</span><a href="${mailHref}" style="color:#000000; text-decoration:none;">${escapeHtml(els.email.value)}</a></td></tr>`
+    + (calUrl ? `<tr><td style="${textTd} font-family:${monoFont}; font-size:11px; line-height:17px; color:#000000;"><a href="${calHref}" target="_blank" style="color:#000000; text-decoration:none;"><span style="font-weight:600;">Calendly</span></a></td></tr>` : "")
     + `</table>`;
 
   // Pills now live bottom-left, under the contact block, left-aligned.
@@ -1789,7 +1795,7 @@ function buildLiveHtml(logoUrl, logoW, logoH) {
   // their BOTTOM lines up with the Email line's bottom on the left. Email bottom
   // ≈ 24+20+12+17+17 = 90px below the text top; with equal 18px top padding on
   // both columns the icons (28px tall) land flush with it.
-  const EMAIL_BOTTOM = 30 + 20 + 12 + 17 + 17; // name lh + pos lh + gap + phone lh + email lh
+  const EMAIL_BOTTOM = 30 + 20 + 12 + 17 + 17 + (calUrl ? 17 : 0); // name lh + pos lh + gap + phone lh + email lh (+ calendly lh)
   const ICON_H = 28;
   const gapLogoIcons = Math.max(0, EMAIL_BOTTOM - ICON_H - logoH);
   const rightInner =
@@ -1830,7 +1836,8 @@ async function copyLiveHtml() {
     s.textContent = "Uploading logo…";
     const logoUrl = await uploadBlob(blob, slugify(els.name.value) + "-live-logo-" + currentDept);
     const html = buildLiveHtml(logoUrl, w, h);
-    const text = `${els.name.value} — ${els.position.value}\n${els.phone.value}\n${els.email.value}`;
+    const text = `${els.name.value} — ${els.position.value}\n${els.phone.value}\n${els.email.value}`
+      + (els.calendly.value.trim() ? `\n${els.calendly.value.trim()}` : "");
     document.getElementById("preview-live").innerHTML = html;
     // navigator.clipboard.write with a raw text/html Blob preserves the
     // <!--[if mso]--> VML comments byte-for-byte (the selection/execCommand
@@ -1982,7 +1989,7 @@ async function copyClassic() {
 document.getElementById("btn-copy-classic").addEventListener("click", copyClassic);
 
 const textInputs = [els.name, els.position, els.phone, els.email];
-const linkInputs = [els.linkedin, els.youtube, els.website, els.search, els.influence, els.ventures];
+const linkInputs = [els.calendly, els.linkedin, els.youtube, els.website, els.search, els.influence, els.ventures];
 
 textInputs.forEach(i => i.addEventListener("input", () => { draw(); updateLivePreview(); updateBgOptionPreviews(); updateLiveHtmlPreview(); updateClassicPreview(); scheduleUpload(); }));
 linkInputs.forEach(i => i.addEventListener("input", () => { updateLivePreview(); updateBgOptionPreviews(); updateLiveHtmlPreview(); updateClassicPreview(); }));
