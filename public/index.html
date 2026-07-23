@@ -55,7 +55,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.33</span></h1>
+  <h1>Aspiron Signature Generator <span style="font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; font-weight:400; color:var(--muted); letter-spacing:0.04em; vertical-align:middle; margin-left:8px;">v0.0.34</span></h1>
   <p class="lead">Bakes custom fonts into a PNG so email clients can’t strip them. Fill the fields → download the PNG → host it → copy the HTML.</p>
 
   <div class="grid">
@@ -1781,9 +1781,9 @@ function buildLiveHtml(logoUrl, logoW, logoH) {
     + `<tr><td style="${textTd} font-family:${nameFont}; font-size:24px; line-height:30px; font-weight:700; color:#000000;">${escapeHtml(els.name.value)}</td></tr>`
     + `<tr><td style="${textTd} font-family:${posFont}; font-size:14px; line-height:20px; font-weight:400; color:#000000;">${escapeHtml(els.position.value)}</td></tr>`
     + `<tr><td height="12" style="font-size:1px; line-height:12px; padding:0px;">&#8203;</td></tr>`
-    + `<tr><td style="${textTd} font-family:${monoFont}; font-size:11px; line-height:17px; color:#000000;"><span style="font-weight:600;">Phone:&nbsp;</span><a href="${telHref}" style="color:#000000; text-decoration:none;">${escapeHtml(els.phone.value)}</a></td></tr>`
-    + `<tr><td style="${textTd} font-family:${monoFont}; font-size:11px; line-height:17px; color:#000000;"><span style="font-weight:600;">Email:&nbsp;</span><a href="${mailHref}" style="color:#000000; text-decoration:none;">${escapeHtml(els.email.value)}</a></td></tr>`
-    + (calUrl ? `<tr><td style="${textTd} font-family:${monoFont}; font-size:11px; line-height:17px; color:#000000;"><a href="${calHref}" target="_blank" style="color:#000000; text-decoration:none;"><span style="font-weight:600;">Calendly</span></a></td></tr>` : "")
+    + `<tr><td style="${textTd} font-family:${monoFont}; font-size:11px; line-height:17px; color:#000000;"><span style="font-weight:600;">Phone:&nbsp;</span><a href="${telHref}" style="color:#000000; text-decoration:none;"><span style="color:#000000; text-decoration:none;">${escapeHtml(els.phone.value)}</span></a></td></tr>`
+    + `<tr><td style="${textTd} font-family:${monoFont}; font-size:11px; line-height:17px; color:#000000;"><span style="font-weight:600;">Email:&nbsp;</span><a href="${mailHref}" style="color:#000000; text-decoration:none;"><span style="color:#000000; text-decoration:none;">${escapeHtml(els.email.value)}</span></a></td></tr>`
+    + (calUrl ? `<tr><td style="${textTd} font-family:${monoFont}; font-size:11px; line-height:17px; color:#000000;"><a href="${calHref}" target="_blank" style="color:#000000; text-decoration:none;"><span style="font-weight:600; color:#000000; text-decoration:none;">Calendly</span></a></td></tr>` : "")
     + `</table>`;
 
   // Pills now live bottom-left, under the contact block, left-aligned.
@@ -1924,9 +1924,9 @@ function buildClassicHtml(logoUrl, logoW, logoH) {
     + `</table>`
     + gap(8) + hr + gap(8)
     + `<table cellpadding="0" cellspacing="0" border="0" style="${tblReset}">`
-    + cLine("Phone", `<a href="${telHref}" style="color:#333333; text-decoration:none;">${escapeHtml(els.phone.value)}</a>`)
-    + cLine("Email", `<a href="${mailHref}" style="color:${ACCENT}; text-decoration:none;">${escapeHtml(els.email.value)}</a>`)
-    + cLine("Web", `<a href="${v.website}" target="_blank" style="color:${ACCENT}; text-decoration:none;">${webDisplay}</a>`)
+    + cLine("Phone", `<a href="${telHref}" style="color:#333333; text-decoration:none;"><span style="color:#333333; text-decoration:none;">${escapeHtml(els.phone.value)}</span></a>`)
+    + cLine("Email", `<a href="${mailHref}" style="color:${ACCENT}; text-decoration:none;"><span style="color:${ACCENT}; text-decoration:none;">${escapeHtml(els.email.value)}</span></a>`)
+    + cLine("Web", `<a href="${v.website}" target="_blank" style="color:${ACCENT}; text-decoration:none;"><span style="color:${ACCENT}; text-decoration:none;">${webDisplay}</span></a>`)
     + `</table>`
     + gap(12)
     + `<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; ${tblReset}"><tr>`
